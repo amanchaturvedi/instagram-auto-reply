@@ -1,7 +1,10 @@
-from config import MY_USERNAME
+import json
+
+from config import MEDIA, MY_USERNAME
 from instagram import (
     REPLIES,
     get_comments,
+    get_media,
     reply_comment,
     send_dm,
     should_reply,
@@ -35,11 +38,13 @@ def _snippet(text, limit=120):
     return text if len(text) <= limit else f"{text[:limit - 3]}..."
 
 
-def discover(fetch_count: int):
-    logger.info("Starting discovery fetch_count=%d my_username=%s", fetch_count, MY_USERNAME, extra={"highlight": "start"})
+def discover(media_name: str, fetch_count: int):
+    logger.info("Starting discovery media_name=%s fetch_count=%d my_username=%s", media_name, fetch_count, MY_USERNAME, extra={"highlight": "start"})
+    
+    media_id = MEDIA[media_name]["media_id"]
 
     try:
-        comments = list(get_comments(fetch_count))
+        comments = list(get_comments(media_id, fetch_count))
     except Exception:
         logger.exception("Discovery failed while fetching comments fetch_count=%d", fetch_count)
         raise
@@ -113,7 +118,7 @@ def discover(fetch_count: int):
         if should_reply(text):
 
             if comment_id not in processed:
-                if enqueue(comment):
+                if enqueue(comment, media_name, media_id):
                     discovered += 1
                     logger.info(
                         "Discovered reply candidate comment_id=%s username=%s text=%r",
@@ -158,10 +163,10 @@ def discover(fetch_count: int):
     )
 
 
-def process(limit: int | None = None):
+def process(media_name: str,limit: int | None = None):
     logger.info("Starting queue processing", extra={"highlight": "start"})
 
-    comments = get_pending_comments(limit)
+    comments = get_pending_comments(media_name, limit)
 
     logger.info("Pending queue size: %d", len(comments), extra={"highlight": "start"})
 
@@ -198,7 +203,7 @@ def process(limit: int | None = None):
             )
         else:
             try:
-                ok, response = send_dm(comment_id)
+                ok, response = send_dm(comment_id, media_name)
             except Exception:
                 logger.exception(
                     "DM request crashed for queued comment %d/%d comment_id=%s username=%s",
@@ -263,12 +268,6 @@ def process(limit: int | None = None):
     logger.info("Processing summary success=%d failed=%d total=%d", success, failed, total, extra={"highlight": "summary"})
     clear_done()
 
-
-def _ask_yes_no(prompt):
-    answer = input(f"{prompt} [y/N] ").strip().lower()
-    return answer in {"y", "yes"}
-
-
 def main():
     parser = argparse.ArgumentParser(
         description="Instagram comment automation"
@@ -283,24 +282,43 @@ def main():
         "discover",
         help="Fetch latest comments and enqueue eligible ones"
     )
+
     discover_parser.add_argument(
-        "-n",
-        "--count",
+        "media_name",
+        choices=MEDIA.keys(),
+        help="Media to discover comments from"
+    )
+
+    discover_parser.add_argument(
+        "count",
         type=int,
+        nargs="?",
         default=DISCOVER_DEFAULT,
-        help=f"Number of latest comments to scan (default: {DISCOVER_DEFAULT})",
+        help="Number of comments to scan"
     )
 
     process_parser = subparsers.add_parser(
         "process",
         help="Process queued comments"
     )
+    
     process_parser.add_argument(
-        "-n",
-        "--count",
+        "media_name",
+        choices=MEDIA.keys(),
+        help="Media to process"
+    )
+
+    process_parser.add_argument(
+        "count",
         type=int,
+        nargs="?",
         default=PROCESS_DEFAULT,
-        help=f"Number of queued comments to process (default: {PROCESS_DEFAULT})",
+        help="Number of queued comments to process"
+    )
+
+    media_parser = subparsers.add_parser(
+        "media",
+        help="List recent media"
     )
 
     args = parser.parse_args()
@@ -311,7 +329,7 @@ def main():
             args.count,
             extra={"highlight": "start"},
         )
-        discover(args.count)
+        discover(args.media_name, args.count)
 
     elif args.command == "process":
         logger.info(
@@ -319,7 +337,15 @@ def main():
             args.count,
             extra={"highlight": "start"},
         )
-        process(args.count)
+        process(args.media_name, args.count)
+
+    elif args.command == "media":
+        media_list = list(get_media())
+
+        with open("media.json", "w", encoding="utf-8") as f:
+            json.dump(media_list, f, indent=4, ensure_ascii=False)
+
+        print(f"Saved {len(media_list)} media items to media.json")
 
 if __name__ == "__main__":
     main()

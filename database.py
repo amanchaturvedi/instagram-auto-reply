@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS queue(
     username TEXT,
     comment TEXT,
     timestamp TEXT,
+    media_name TEXT NOT NULL,
+    media_id   TEXT NOT NULL,
     status TEXT DEFAULT 'PENDING',
     retries INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -27,38 +29,10 @@ conn.commit()
 
 
 # ----------------------------
-# State
-# ----------------------------
-
-def get_last_seen():
-    cursor.execute(
-        "SELECT value FROM state WHERE key='last_seen_comment_id'"
-    )
-
-    row = cursor.fetchone()
-
-    value = row["value"] if row else None
-    logger.debug("Loaded last_seen_comment_id=%s", value)
-    return value
-
-
-def set_last_seen(comment_id):
-    cursor.execute("""
-        INSERT INTO state(key, value)
-        VALUES('last_seen_comment_id', ?)
-        ON CONFLICT(key)
-        DO UPDATE SET value=excluded.value
-    """, (comment_id,))
-
-    conn.commit()
-    logger.info("Updated last_seen_comment_id=%s", comment_id)
-
-
-# ----------------------------
 # Queue
 # ----------------------------
 
-def enqueue(comment):
+def enqueue(comment, media_name, media_id):
     """
     Add comment to processing queue.
     Duplicate comment_ids are ignored.
@@ -69,24 +43,30 @@ def enqueue(comment):
             comment_id,
             username,
             comment,
-            timestamp
+            timestamp,
+            media_name,
+            media_id
         )
-        VALUES(?,?,?,?)
+        VALUES(?,?,?,?,?,?)
     """, (
         comment["id"],
         comment.get("from", {}).get("username"),
         comment.get("text"),
-        comment.get("timestamp")
+        comment.get("timestamp"),
+        media_name,
+        media_id
     ))
 
     conn.commit()
     inserted = cursor.rowcount > 0
     if inserted:
         logger.info(
-            "Enqueued comment_id=%s username=%s timestamp=%s",
+            "Enqueued comment_id=%s username=%s timestamp=%s media_name=%s media_id=%s",
             comment.get("id"),
             comment.get("from", {}).get("username"),
             comment.get("timestamp"),
+            media_name,
+            media_id
         )
     else:
         logger.debug("Skipped duplicate queue entry comment_id=%s", comment.get("id"))
@@ -94,15 +74,15 @@ def enqueue(comment):
     return inserted
 
 
-def get_pending_comments(limit=None):
+def get_pending_comments(media_name: str, limit=None):
     query = """
         SELECT *
         FROM queue
-        WHERE status IN ('PENDING', 'DM_SENT', 'FAILED')
+        WHERE status IN ('PENDING', 'DM_SENT', 'FAILED') AND media_name = ?
         ORDER BY timestamp ASC
     """
 
-    params = []
+    params = [media_name]
 
     if limit is not None:
         query += " LIMIT ?"
