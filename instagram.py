@@ -10,7 +10,8 @@ REPLIES = [
     "Shared the location in DM",
     "I've sent you the location in DM",
     "Location sent! Check your DM",
-    "sent you the location"
+    "sent you the location",
+    "a must visit place"
 ]
 reply_cycle = itertools.cycle(REPLIES)
 

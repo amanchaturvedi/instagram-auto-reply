@@ -151,7 +151,8 @@ def discover(media_name: str, fetch_count: int):
             break
 
     logger.info(
-        "Discovery completed discovered=%d scanned_top_level_user_comments=%d skipped_own=%d skipped_nested=%d skipped_already_replied=%d skipped_no_keyword=%d skipped_hidden=%d",
+        "Discovery completed for media=%s discovered=%d scanned_top_level_user_comments=%d skipped_own=%d skipped_nested=%d skipped_already_replied=%d skipped_no_keyword=%d skipped_hidden=%d",
+        media_name,
         discovered,
         scanned_user_comments,
         skipped_own_reply,
@@ -162,6 +163,32 @@ def discover(media_name: str, fetch_count: int):
         extra={"highlight": "summary"},
     )
 
+def discover_all(fetch_count: int):
+    logger.info(
+        "Starting discovery for %d media",
+        len(MEDIA),
+        extra={"highlight": "start"},
+    )
+
+    for media_name, media in MEDIA.items():
+        logger.info(
+            "Discovering media=%s media_id=%s",
+            media_name,
+            media["media_id"],
+        )
+
+        try:
+            discover(media_name, fetch_count)
+        except Exception:
+            logger.exception(
+                "Discovery failed media=%s",
+                media_name,
+            )
+
+    logger.info(
+        "Discovery completed for all media",
+        extra={"highlight": "summary"},
+    )
 
 def process(media_name: str,limit: int | None = None):
     logger.info("Starting queue processing", extra={"highlight": "start"})
@@ -321,6 +348,19 @@ def main():
         help="List recent media"
     )
 
+    discover_all_parser = subparsers.add_parser(
+        "discover_all",
+        help="Discover comments for all configured media"
+    )
+
+    discover_all_parser.add_argument(
+        "count",
+        type=int,
+        nargs="?",
+        default=DISCOVER_DEFAULT,
+        help="Number of top-level comments to scan per media"
+    )
+
     args = parser.parse_args()
 
     if args.command == "discover":
@@ -346,6 +386,14 @@ def main():
             json.dump(media_list, f, indent=4, ensure_ascii=False)
 
         print(f"Saved {len(media_list)} media items to media.json")
+
+    elif args.command == "discover_all":
+        logger.info(
+            "Starting discovery_all count=%d",
+            args.count,
+            extra={"highlight": "start"},
+        )
+        discover_all(args.count)
 
 if __name__ == "__main__":
     main()

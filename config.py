@@ -26,6 +26,14 @@ MEDIA = {
     "nukkad": {
         "media_id": "17943925335251130",
         "location": "Nukkad Cafe, Kailash Colony, New Delhi",
+    },
+    "china_club": {
+        "media_id": "17875897377621242",
+        "location": "China Club, Global Business Park, Sikanderpur, Gurugram",
+    },
+    "nubo": {
+        "media_id": "18083235794531346",
+        "location": "Nubo, Galleria Market, Gurugram",
     }
 }
 
