@@ -10,8 +10,7 @@ REPLIES = [
     "Shared the location in DM",
     "I've sent you the location in DM",
     "Location sent! Check your DM",
-    "sent you the location",
-    "a must visit place"
+    "Sent you the location"
 ]
 reply_cycle = itertools.cycle(REPLIES)
 
@@ -97,7 +96,7 @@ def should_reply(text):
         "link",
         "map",
         "maps",
-        "place",
+        "which place",
         "where",
         "details",
         "📍"

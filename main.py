@@ -30,7 +30,6 @@ MY_REPLY_MARKERS = {reply.lower() for reply in REPLIES}
 COMMENT_PROCESSING_DELAY_SECONDS = (5, 8)
 DISCOVERY_FETCH_MULTIPLIER = 5
 DISCOVER_DEFAULT = 100
-PROCESS_DEFAULT = 10
 
 
 def _snippet(text, limit=120):
@@ -190,7 +189,7 @@ def discover_all(fetch_count: int):
         extra={"highlight": "summary"},
     )
 
-def process(media_name: str,limit: int | None = None):
+def process(media_name: str | None = None, limit: int | None = None):
     logger.info("Starting queue processing", extra={"highlight": "start"})
 
     comments = get_pending_comments(media_name, limit)
@@ -207,11 +206,13 @@ def process(media_name: str,limit: int | None = None):
         username = comment["username"]
         text = comment["comment"] or ""
         status = comment["status"]
+        queued_media = comment["media_name"]
 
         logger.info(
-            "Processing queued comment %d/%d comment_id=%s username=%s status=%s retries=%s text=%r",
+            "Processing queued comment %d/%d media=%s comment_id=%s username=%s status=%s retries=%s text=%r",
             index,
             total,
+            queued_media,
             comment_id,
             username,
             status,
@@ -230,12 +231,13 @@ def process(media_name: str,limit: int | None = None):
             )
         else:
             try:
-                ok, response = send_dm(comment_id, media_name)
+                ok, response = send_dm(comment_id, queued_media)
             except Exception:
                 logger.exception(
-                    "DM request crashed for queued comment %d/%d comment_id=%s username=%s",
+                    "DM request crashed for queued comment %d/%d media=%s comment_id=%s username=%s",
                     index,
                     total,
+                    queued_media,
                     comment_id,
                     username,
                 )
@@ -245,9 +247,10 @@ def process(media_name: str,limit: int | None = None):
 
             if not ok:
                 logger.error(
-                    "Skipping public reply for queued comment %d/%d because DM failed comment_id=%s username=%s response=%s",
+                    "Skipping public reply for queued comment %d/%d because DM failed media=%s comment_id=%s username=%s response=%s",
                     index,
                     total,
+                    queued_media,
                     comment_id,
                     username,
                     response,
@@ -267,9 +270,10 @@ def process(media_name: str,limit: int | None = None):
             success += 1
 
             logger.info(
-                "Completed queued comment %d/%d comment_id=%s username=%s",
+                "Completed queued comment %d/%d media=%s comment_id=%s username=%s",
                 index,
                 total,
+                queued_media,
                 comment_id,
                 username,
                 extra={"highlight": "success"},
@@ -277,9 +281,10 @@ def process(media_name: str,limit: int | None = None):
 
         except Exception:
             logger.exception(
-                "Public reply failed after DM success for queued comment %d/%d comment_id=%s username=%s",
+                "Public reply failed after DM success for queued comment %d/%d media=%s comment_id=%s username=%s",
                 index,
                 total,
+                queued_media,
                 comment_id,
                 username,
             )
@@ -328,18 +333,20 @@ def main():
         "process",
         help="Process queued comments"
     )
-    
+
     process_parser.add_argument(
         "media_name",
+        nargs="?",
         choices=MEDIA.keys(),
-        help="Media to process"
+        default=None,
+        help="Media to process. If omitted, processes all media."
     )
 
     process_parser.add_argument(
-        "count",
+        "-n",
+        "--count",
         type=int,
-        nargs="?",
-        default=PROCESS_DEFAULT,
+        default=None,
         help="Number of queued comments to process"
     )
 
@@ -373,7 +380,7 @@ def main():
 
     elif args.command == "process":
         logger.info(
-            "Starting process command count=%d",
+            "Starting process command count=%s",
             args.count,
             extra={"highlight": "start"},
         )

@@ -73,16 +73,20 @@ def enqueue(comment, media_name, media_id):
 
     return inserted
 
-
-def get_pending_comments(media_name: str, limit=None):
+def get_pending_comments(media_name=None, limit=None):
     query = """
         SELECT *
         FROM queue
-        WHERE status IN ('PENDING', 'DM_SENT', 'FAILED') AND media_name = ?
-        ORDER BY timestamp ASC
+        WHERE status IN ('PENDING', 'DM_SENT', 'FAILED')
     """
 
-    params = [media_name]
+    params = []
+
+    if media_name:
+        query += " AND media_name = ?"
+        params.append(media_name)
+
+    query += " ORDER BY timestamp ASC"
 
     if limit is not None:
         query += " LIMIT ?"

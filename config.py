@@ -34,7 +34,15 @@ MEDIA = {
     "nubo": {
         "media_id": "18083235794531346",
         "location": "Nubo, Galleria Market, Gurugram",
-    }
+    },
+    "guwahati_airport": {
+        "media_id": "18339407164268236",
+        "location": "Guwahati Airport, Guwahati, Assam",
+    },
+    "woodzo": {
+        "media_id": "18069156794459590",
+        "location": "Woodzo, Shangarh, Himachal Pradesh",
+    },
 }
 
 DM_MESSAGES = [
