@@ -1,5 +1,7 @@
 import sqlite3
 from logger import logger
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 DB_NAME = "instagram.db"
 
@@ -52,7 +54,7 @@ def enqueue(comment, media_name, media_id):
         comment["id"],
         comment.get("from", {}).get("username"),
         comment.get("text"),
-        comment.get("timestamp"),
+        utc_to_ist(comment.get("timestamp")),
         media_name,
         media_id
     ))
@@ -220,3 +222,16 @@ def reset_failed():
 
     conn.commit()
     logger.info("Reset failed queue entries rows_updated=%d", cursor.rowcount)
+
+def utc_to_ist(timestamp):
+    if not timestamp:
+        return None
+
+    dt = datetime.strptime(
+        timestamp,
+        "%Y-%m-%dT%H:%M:%S%z"
+    )
+
+    return dt.astimezone(
+        ZoneInfo("Asia/Kolkata")
+    ).strftime("%Y-%m-%d %H:%M:%S")

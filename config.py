@@ -43,6 +43,14 @@ MEDIA = {
         "media_id": "18069156794459590",
         "location": "Woodzo, Shangarh, Himachal Pradesh",
     },
+    "route65": {
+        "media_id": "18083622698290999",
+        "location": "M3M Route 65, Sector 65, Gurugram",
+    },
+    "panjab_house": {
+        "media_id": "18106047890115594",
+        "location": "Panjab House Kitchen & Bar, Sector 65, Gurugram"
+    }
 }
 
 DM_MESSAGES = [
