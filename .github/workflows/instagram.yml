@@ -92,3 +92,37 @@ jobs:
               ;;
 
           esac
+      - name: Show database status
+        shell: bash
+        run: |
+          cd /home/ubuntu/instagram-auto-reply
+
+          echo ""
+          echo "========================================"
+          echo "DATABASE STATUS"
+          echo "========================================"
+
+          sqlite3 instagram.db <<'SQL'
+          SELECT 'Total queue rows: ' || COUNT(*) FROM queue;
+
+          SELECT '';
+          SELECT 'By media and status:';
+
+          SELECT media_name || ' | ' || status || ' | ' || COUNT(*)
+          FROM queue
+          GROUP BY media_name, status
+          ORDER BY media_name, status;
+
+          SELECT '';
+          SELECT 'Queue details:';
+
+          SELECT
+            id || ' | ' ||
+            media_name || ' | ' ||
+            status || ' | ' ||
+            created_at
+          FROM queue
+          ORDER BY id;
+          SQL
+
+          echo "========================================"
