@@ -1,0 +1,94 @@
+name: Instagram Automation
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "Operation"
+        required: true
+        type: choice
+        options:
+          - media
+          - discover
+          - discover_all
+          - process
+
+      media:
+        description: "Media (required for discover; optional for process)"
+        required: false
+        type: choice
+        options:
+          - ""
+          - dlf_midtown
+          - dear_donna
+          - dhan_mill
+          - nukkad
+          - china_club
+          - nubo
+          - guwahati_airport
+          - woodzo
+          - route65
+          - panjab_house
+
+      count:
+        description: "Number of comments"
+        required: false
+        default: "10"
+        type: string
+
+jobs:
+  run:
+    runs-on: [self-hosted, ARM64]
+
+    steps:
+      - name: Run Instagram automation
+        shell: bash
+        run: |
+          set -e
+
+          cd /home/ubuntu/instagram-auto-reply
+          source .venv/bin/activate
+
+          echo "Running command: ${{ inputs.command }}"
+          echo "Media: ${{ inputs.media }}"
+          echo "Count: ${{ inputs.count }}"
+
+          case "${{ inputs.command }}" in
+
+            media)
+              python main.py media
+              ;;
+
+            discover)
+              if [ -z "${{ inputs.media }}" ]; then
+                echo "ERROR: Media is required for discover"
+                exit 1
+              fi
+
+              python main.py discover \
+                "${{ inputs.media }}" \
+                "${{ inputs.count }}"
+              ;;
+
+            discover_all)
+              python main.py discover_all \
+                "${{ inputs.count }}"
+              ;;
+
+            process)
+              if [ -z "${{ inputs.media }}" ]; then
+                python main.py process \
+                  --count "${{ inputs.count }}"
+              else
+                python main.py process \
+                  "${{ inputs.media }}" \
+                  --count "${{ inputs.count }}"
+              fi
+              ;;
+
+            *)
+              echo "ERROR: Unknown command"
+              exit 1
+              ;;
+
+          esac
