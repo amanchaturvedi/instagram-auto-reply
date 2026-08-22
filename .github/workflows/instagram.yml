@@ -41,6 +41,12 @@ jobs:
     runs-on: [self-hosted, ARM64]
 
     steps:
+      - name: Update code
+        shell: bash
+        run: |
+          set -e
+          cd /home/ubuntu/instagram-auto-reply
+          git pull --ff-only origin main
       - name: Run Instagram automation
         shell: bash
         run: |
@@ -117,12 +123,13 @@ jobs:
           SELECT 'Queue details:';
 
           SELECT
-            id || ' | ' ||
+            comment_id || ' | ' ||
+            comment || ' | ' ||
             media_name || ' | ' ||
             status || ' | ' ||
             created_at
           FROM queue
-          ORDER BY id;
+          ORDER BY comment_id;
           SQL
 
           echo "========================================"
