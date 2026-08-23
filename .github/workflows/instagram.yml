@@ -33,7 +33,6 @@ on:
       count:
         description: "Number of comments"
         required: false
-        default: "10"
         type: string
 
 jobs:
