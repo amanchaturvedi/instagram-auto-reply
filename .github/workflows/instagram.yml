@@ -82,12 +82,21 @@ jobs:
 
             process)
               if [ -z "${{ inputs.media }}" ]; then
-                python main.py process \
-                  --count "${{ inputs.count }}"
+                if [ -z "${{ inputs.count }}" ]; then
+                  python main.py process
+                else
+                  python main.py process \
+                    --count "${{ inputs.count }}"
+                fi
               else
-                python main.py process \
-                  "${{ inputs.media }}" \
-                  --count "${{ inputs.count }}"
+                if [ -z "${{ inputs.count }}" ]; then
+                  python main.py process \
+                    "${{ inputs.media }}"
+                else
+                  python main.py process \
+                    "${{ inputs.media }}" \
+                    --count "${{ inputs.count }}"
+                fi
               fi
               ;;
 
