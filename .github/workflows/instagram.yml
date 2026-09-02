@@ -132,6 +132,7 @@ jobs:
 
           SELECT
             comment_id || ' | ' ||
+            username || ' | ' ||
             comment || ' | ' ||
             media_name || ' | ' ||
             status || ' | ' ||

@@ -27,10 +27,10 @@ MEDIA = {
         "media_id": "17943925335251130",
         "location": "Nukkad Cafe, Kailash Colony, New Delhi",
     },
-    "china_club": {
-        "media_id": "17875897377621242",
-        "location": "China Club, Global Business Park, Sikanderpur, Gurugram",
-    },
+    # "china_club": {
+    #     "media_id": "17875897377621242",
+    #     "location": "China Club, Global Business Park, Sikanderpur, Gurugram",
+    # },
     "nubo": {
         "media_id": "18083235794531346",
         "location": "Nubo, Galleria Market, Gurugram",
@@ -47,10 +47,22 @@ MEDIA = {
         "media_id": "18083622698290999",
         "location": "M3M Route 65, Sector 65, Gurugram",
     },
-    "panjab_house": {
-        "media_id": "18106047890115594",
-        "location": "Panjab House Kitchen & Bar, Sector 65, Gurugram"
-    }
+    # "panjab_house": {
+    #     "media_id": "18106047890115594",
+    #     "location": "Panjab House Kitchen & Bar, Sector 65, Gurugram"
+    # },
+    "sunder_nursery1": {
+        "media_id": "18165184420466476",
+        "location": "Sunder Nursery, New Delhi"
+    },
+    "sunder_nursery2": {
+        "media_id": "17890689507673390",
+        "location": "Sunder Nursery, New Delhi"
+    },
+    "wah_rilang": {
+        "media_id": "17991933054034507",
+        "location": "Wah Rilang Viewpoint, Meghalaya"
+    },
 }
 
 DM_MESSAGES = [
