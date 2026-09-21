@@ -31,22 +31,22 @@ MEDIA = {
     #     "media_id": "17875897377621242",
     #     "location": "China Club, Global Business Park, Sikanderpur, Gurugram",
     # },
-    "nubo": {
-        "media_id": "18083235794531346",
-        "location": "Nubo, Galleria Market, Gurugram",
-    },
-    "guwahati_airport": {
-        "media_id": "18339407164268236",
-        "location": "Guwahati Airport, Guwahati, Assam",
-    },
+    # "nubo": {
+    #     "media_id": "18083235794531346",
+    #     "location": "Nubo, Galleria Market, Gurugram",
+    # },
+    # "guwahati_airport": {
+    #     "media_id": "18339407164268236",
+    #     "location": "Guwahati Airport, Guwahati, Assam",
+    # },
     "woodzo": {
         "media_id": "18069156794459590",
         "location": "Woodzo, Shangarh, Himachal Pradesh",
     },
-    "route65": {
-        "media_id": "18083622698290999",
-        "location": "M3M Route 65, Sector 65, Gurugram",
-    },
+    # "route65": {
+    #     "media_id": "18083622698290999",
+    #     "location": "M3M Route 65, Sector 65, Gurugram",
+    # },
     # "panjab_house": {
     #     "media_id": "18106047890115594",
     #     "location": "Panjab House Kitchen & Bar, Sector 65, Gurugram"
@@ -62,6 +62,10 @@ MEDIA = {
     "wah_rilang": {
         "media_id": "17991933054034507",
         "location": "Wah Rilang Viewpoint, Meghalaya"
+    },
+    "tehri_lake": {
+        "media_id": "17947691208289527",
+        "location": "Le ROI Floating Huts & Eco Rooms, Tehri, Uttarakhand"
     },
 }
 
