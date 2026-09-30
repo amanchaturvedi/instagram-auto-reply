@@ -39,10 +39,10 @@ MEDIA = {
     #     "media_id": "18339407164268236",
     #     "location": "Guwahati Airport, Guwahati, Assam",
     # },
-    "woodzo": {
-        "media_id": "18069156794459590",
-        "location": "Woodzo, Shangarh, Himachal Pradesh",
-    },
+    # "woodzo": {
+    #     "media_id": "18069156794459590",
+    #     "location": "Woodzo, Shangarh, Himachal Pradesh",
+    # },
     # "route65": {
     #     "media_id": "18083622698290999",
     #     "location": "M3M Route 65, Sector 65, Gurugram",
@@ -51,22 +51,30 @@ MEDIA = {
     #     "media_id": "18106047890115594",
     #     "location": "Panjab House Kitchen & Bar, Sector 65, Gurugram"
     # },
-    "sunder_nursery1": {
-        "media_id": "18165184420466476",
-        "location": "Sunder Nursery, New Delhi"
-    },
-    "sunder_nursery2": {
-        "media_id": "17890689507673390",
-        "location": "Sunder Nursery, New Delhi"
-    },
-    "wah_rilang": {
-        "media_id": "17991933054034507",
-        "location": "Wah Rilang Viewpoint, Meghalaya"
-    },
+    # "sunder_nursery1": {
+    #     "media_id": "18165184420466476",
+    #     "location": "Sunder Nursery, New Delhi"
+    # },
+    # "sunder_nursery2": {
+    #     "media_id": "17890689507673390",
+    #     "location": "Sunder Nursery, New Delhi"
+    # },
+    # "wah_rilang": {
+    #     "media_id": "17991933054034507",
+    #     "location": "Wah Rilang Viewpoint, Meghalaya"
+    # },
     "tehri_lake": {
         "media_id": "17947691208289527",
         "location": "Le ROI Floating Huts & Eco Rooms, Tehri, Uttarakhand"
     },
+    "kijiji1": {
+        "media_id": "18175835374442926",
+        "location": "Kijiji - On The Roof, Sector 47, Gurgaon"
+    },
+    "kijiji2": {
+        "media_id": "18118430858002017",
+        "location": "Kijiji - On The Roof, Sector 47, Gurgaon"
+    }
 }
 
 DM_MESSAGES = [
