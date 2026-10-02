@@ -30,6 +30,7 @@ STATIC_DIR = BASE_DIR / "static"
 INDEX_FILE = BASE_DIR / "templates" / "index.html"
 
 COMMENT_REPLY_SCAN_LIMIT = 100
+COMMENT_REPLY_MAX_SCAN_LIMIT = 500
 
 _last_comment_discovery = None
 
@@ -253,18 +254,88 @@ def api_comments():
     return _last_comment_discovery or _empty_comment_stats()
 
 
-@app.post("/api/comments/refresh")
-def api_refresh_comments():
+def _validate_comment_limit(limit):
+    if limit < 1 or limit > COMMENT_REPLY_MAX_SCAN_LIMIT:
+        raise HTTPException(
+            status_code=400,
+            detail=f"limit must be between 1 and {COMMENT_REPLY_MAX_SCAN_LIMIT}",
+        )
+    return limit
+
+
+def _merge_discovery_result(result):
     global _last_comment_discovery
+
+    if _last_comment_discovery is None:
+        base = _empty_comment_stats()
+        base["reels"] = {}
+    else:
+        base = deepcopy(_last_comment_discovery)
+
+    base["status"] = "ok"
+    base["last_updated"] = result.get("last_updated")
+    base["discovered_comments"] = (
+        int(base.get("discovered_comments", 0))
+        + int(result.get("discovered_comments", 0))
+    )
+
+    for media_name, reel in result.get("reels", {}).items():
+        base["reels"][media_name] = reel
+
+    base["summary"]["total_comments"] = sum(
+        int(reel.get("total_comments", 0))
+        for reel in base["reels"].values()
+    )
+    base["summary"]["replied_comments"] = sum(
+        int(reel.get("replied_comments", 0))
+        for reel in base["reels"].values()
+    )
+    base["summary"]["pending_comments"] = sum(
+        int(reel.get("pending_comments", 0))
+        for reel in base["reels"].values()
+    )
+
+    _last_comment_discovery = base
+    return base
+
+
+@app.post("/api/comments/refresh")
+def api_refresh_comments(limit: int = COMMENT_REPLY_SCAN_LIMIT):
+    _validate_comment_limit(limit)
 
     logger.info(
         "Web comment discovery requested; maps to discover_all scan_limit=%d",
-        COMMENT_REPLY_SCAN_LIMIT,
+        limit,
     )
 
-    _last_comment_discovery = discover_all(COMMENT_REPLY_SCAN_LIMIT)
+    return _merge_discovery_result(discover_all(limit))
 
-    return _last_comment_discovery
+
+@app.post("/api/comments/refresh/{media_id}")
+def api_refresh_comments_for_reel(
+    media_id: str,
+    limit: int = COMMENT_REPLY_SCAN_LIMIT,
+):
+    _validate_comment_limit(limit)
+
+    media_name = _replyable_media_name(media_id)
+
+    if media_name is None:
+        raise HTTPException(
+            status_code=400,
+            detail="This Reel is not enabled for replies. Enable it in Config first.",
+        )
+
+    logger.info(
+        "Web Reel comment discovery requested media=%s media_id=%s scan_limit=%d",
+        media_name,
+        media_id,
+        limit,
+    )
+
+    return _merge_discovery_result(
+        discover(media_name, limit),
+    )
 
 
 def _replyable_media_name(media_id):
