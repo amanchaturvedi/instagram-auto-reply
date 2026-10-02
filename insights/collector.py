@@ -95,11 +95,10 @@ def _upsert_reel(data, media):
     return reel
 
 
-def _append_snapshot(reel, collected_at, metrics, raw_response):
+def _append_snapshot(reel, collected_at, metrics):
     snapshot = {
         "collected_at": collected_at,
         "metrics": metrics,
-        "raw_response": raw_response,
     }
 
     snapshots = reel.setdefault("snapshots", [])
@@ -152,17 +151,16 @@ def collect_reel_insights(media_id=None):
         reel = _upsert_reel(data, media)
 
         try:
-            raw_response = get_media_insights(
+            api_response = get_media_insights(
                 current_id,
                 REEL_INSIGHT_METRICS,
             )
-            metrics = _normalize_metrics(raw_response)
+            metrics = _normalize_metrics(api_response)
 
             added = _append_snapshot(
                 reel,
                 collected_at,
                 metrics,
-                raw_response,
             )
 
             if added:
