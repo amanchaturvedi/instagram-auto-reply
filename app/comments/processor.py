@@ -149,3 +149,9 @@ def process(media_name: str | None = None, limit: int | None = None):
         extra={"highlight": "summary"},
     )
     clear_done()
+
+    return {
+        "success": success,
+        "failed": failed,
+        "total": total,
+    }
