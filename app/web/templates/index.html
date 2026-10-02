@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Instagram Insights</title>
+    <title>Instagram Dashboard</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -11,12 +11,11 @@
         <header class="topbar">
             <div>
                 <p class="eyebrow">THE LOST APERTURE</p>
-                <h1>Instagram Insights</h1>
-                <p class="subtle">Reel performance dashboard</p>
+                <h1>Instagram Dashboard</h1>
+                <p class="subtle">Reels, performance and comments</p>
             </div>
             <div class="actions">
-                <button id="collect-btn" class="button primary">Collect insights</button>
-                <button id="refresh-btn" class="button">Refresh</button>
+                <button id="refresh-reels-btn" class="button primary">Refresh reels</button>
             </div>
         </header>
 
@@ -26,7 +25,7 @@
             <div class="panel-header">
                 <div>
                     <h2>Reels</h2>
-                    <p class="subtle">Latest lifetime metrics from Instagram Insights</p>
+                    <p class="subtle">Click a Reel to view its insight history</p>
                 </div>
                 <span id="status" class="status">Ready</span>
             </div>
@@ -36,33 +35,73 @@
                     <thead>
                         <tr>
                             <th>Reel</th>
+                            <th>Posted</th>
                             <th>Views</th>
                             <th>Reach</th>
                             <th>Likes</th>
                             <th>Comments</th>
                             <th>Shares</th>
                             <th>Saves</th>
-                            <th>Avg watch</th>
+                            <th>Watch</th>
                             <th>Skip</th>
                             <th>Engagement</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="reels-body"></tbody>
                 </table>
             </div>
         </section>
-
-        <section id="detail-panel" class="panel detail hidden">
-            <div class="panel-header">
-                <div>
-                    <h2 id="detail-title">Reel details</h2>
-                    <p id="detail-meta" class="subtle"></p>
-                </div>
-                <button id="close-detail" class="button">Close</button>
-            </div>
-            <pre id="detail-json"></pre>
-        </section>
     </main>
+
+    <div id="reel-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="reel-modal-title">
+        <div class="modal-card large">
+            <div class="modal-header">
+                <div>
+                    <h2 id="reel-modal-title">Reel</h2>
+                    <p id="reel-modal-meta" class="subtle"></p>
+                </div>
+                <button id="close-reel-modal" class="icon-button" aria-label="Close">×</button>
+            </div>
+
+            <div id="reel-current-metrics" class="metric-grid"></div>
+
+            <div class="snapshot-section">
+                <div class="section-title">Snapshots</div>
+                <div class="table-wrap">
+                    <table class="snapshot-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Views</th>
+                                <th>Reach</th>
+                                <th>Likes</th>
+                                <th>Comments</th>
+                                <th>Shares</th>
+                                <th>Saves</th>
+                                <th>Watch</th>
+                                <th>Skip</th>
+                            </tr>
+                        </thead>
+                        <tbody id="snapshots-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="comments-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="comments-modal-title">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div>
+                    <h2 id="comments-modal-title">Comments</h2>
+                    <p id="comments-modal-meta" class="subtle"></p>
+                </div>
+                <button id="close-comments-modal" class="icon-button" aria-label="Close">×</button>
+            </div>
+            <div id="comments-list" class="comments-list"></div>
+        </div>
+    </div>
 
     <script src="/static/app.js"></script>
 </body>
