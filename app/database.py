@@ -63,6 +63,10 @@ def _get_db():
 
                 DELETE FROM queue
                 WHERE status = 'DONE';
+
+                UPDATE queue
+                SET status = 'PENDING'
+                WHERE status = 'FAILED';
             """)
 
             connection.execute("PRAGMA user_version = 2")
@@ -331,16 +335,7 @@ def mark_failed(comment_id):
     cursor.execute(
         """
         UPDATE queue
-        SET
-            retries = retries + 1,
-            status =
-                CASE
-                    WHEN retries + 1 >= 3
-                    THEN 'FAILED'
-                    WHEN status = 'DM_SENT'
-                    THEN 'DM_SENT'
-                    ELSE 'PENDING'
-                END
+        SET retries = retries + 1
         WHERE comment_id=?
         """,
         (comment_id,),
@@ -388,27 +383,6 @@ def queue_size(status="PENDING"):
     )
 
     return size
-
-
-def reset_failed():
-    connection, cursor = _get_db()
-
-    cursor.execute(
-        """
-        UPDATE queue
-        SET
-            status='PENDING',
-            retries=0
-        WHERE status='FAILED'
-        """
-    )
-
-    connection.commit()
-
-    logger.info(
-        "Reset failed queue entries rows_updated=%d",
-        cursor.rowcount,
-    )
 
 
 def utc_to_ist(timestamp):
