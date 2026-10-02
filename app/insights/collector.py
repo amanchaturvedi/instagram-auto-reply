@@ -178,6 +178,7 @@ def collect_reel_insights(media_id=None):
                 current_id,
             )
 
+    data["insights_last_updated"] = collected_at
     data["last_updated"] = collected_at
     _save_insights(data)
 
