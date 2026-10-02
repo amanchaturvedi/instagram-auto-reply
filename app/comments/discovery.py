@@ -3,12 +3,7 @@ from zoneinfo import ZoneInfo
 
 from app.comments.service import get_comments, should_reply
 from app.config import MY_USERNAME, REPLY_MESSAGE, REPLY_MESSAGES, get_replyable_media
-from app.database import (
-    enqueue,
-    get_comment_dashboard,
-    mark_done,
-    upsert_comment_media_stats,
-)
+from app.database import enqueue, get_pending_count_by_media
 from app.instagram import get_media_by_id
 from app.logger import logger
 
@@ -48,8 +43,7 @@ def discover(media_name: str, fetch_count: int):
         )
         raise
 
-    processed = set()
-    comments_by_id = {comment["id"]: comment for comment in comments}
+    bot_replied_to = set()
     discovered = 0
     scanned_user_comments = 0
     skipped_own_reply = 0
@@ -67,16 +61,11 @@ def discover(media_name: str, fetch_count: int):
         if username == MY_USERNAME:
             lower = text.lower()
 
-            if any(marker in lower for marker in MY_REPLY_MARKERS):
-                parent = comment.get("parent_id")
-
-                if parent:
-                    processed.add(parent)
-                    logger.debug(
-                        "Detected existing reply marker reply_comment_id=%s parent_comment_id=%s",
-                        comment_id,
-                        parent,
-                    )
+            if parent_id and any(
+                marker in lower
+                for marker in MY_REPLY_MARKERS
+            ):
+                bot_replied_to.add(parent_id)
 
             skipped_own_reply += 1
             continue
@@ -92,16 +81,13 @@ def discover(media_name: str, fetch_count: int):
         scanned_user_comments += 1
 
         if should_reply(text):
-            eligible_ids.add(comment_id)
+            if comment_id in bot_replied_to:
+                continue
 
-            if comment_id not in processed and enqueue(
-                comment,
-                media_name,
-                media_id,
-            ):
+            if enqueue(comment, media_name, media_id):
                 discovered += 1
                 logger.info(
-                    "Discovered reply candidate comment_id=%s username=%s text=%r",
+                    "Discovered pending comment_id=%s username=%s text=%r",
                     comment_id,
                     username,
                     _snippet(text),
@@ -112,58 +98,31 @@ def discover(media_name: str, fetch_count: int):
         if scanned_user_comments >= fetch_count:
             break
 
-    for parent_id in processed:
-        parent_comment = comments_by_id.get(parent_id)
-
-        if parent_comment is None:
-            continue
-
-        if not should_reply(parent_comment.get("text") or ""):
-            continue
-
-        if enqueue(parent_comment, media_name, media_id):
-            logger.debug(
-                "Recorded existing public reply in queue history comment_id=%s",
-                parent_id,
-            )
-
-        mark_done(parent_id)
-
     total_comments = metadata.get("comments_count")
     if total_comments is None:
         total_comments = len(comments)
 
+    pending_count = get_pending_count_by_media([media_id]).get(media_id, 0)
     last_updated = datetime.now(
         ZoneInfo("Asia/Kolkata")
     ).isoformat(timespec="seconds")
 
-    upsert_comment_media_stats(
-        media_name=media_name,
-        media_id=media_id,
-        caption=metadata.get("caption"),
-        timestamp=metadata.get("timestamp"),
-        total_comments=total_comments,
-        discovered_comments=discovered,
-        scanned_comments=len(comments),
-        last_updated=last_updated,
-    )
-
-    reel_dashboard = get_comment_dashboard(
-        {media_name: configured_media}
-    )
-    reel_stats = reel_dashboard["reels"][media_name]
-
     result = {
-        **reel_stats,
+        "media_name": media_name,
+        "media_id": media_id,
+        "caption": metadata.get("caption"),
+        "timestamp": metadata.get("timestamp"),
+        "total_comments": int(total_comments),
+        "pending_comments": pending_count,
         "discovered_comments": discovered,
         "scanned_comments": len(comments),
+        "last_updated": last_updated,
     }
 
     logger.info(
-        "Discovery completed media=%s total=%d replied=%d pending=%d discovered=%d",
+        "Discovery completed media=%s total=%d pending=%d discovered=%d",
         media_name,
         result["total_comments"],
-        result["replied_comments"],
         result["pending_comments"],
         result["discovered_comments"],
         extra={"highlight": "summary"},
@@ -194,25 +153,20 @@ def discover_all(fetch_count: int):
                 media_name,
             )
 
-    dashboard = get_comment_dashboard(replyable_media)
-    dashboard["last_updated"] = datetime.now(
+    last_updated = datetime.now(
         ZoneInfo("Asia/Kolkata")
     ).isoformat(timespec="seconds")
-    dashboard["discovered_comments"] = sum(
-        result["discovered_comments"]
-        for result in results
-    )
-    dashboard["failed_reels"] = failed
 
-    logger.info(
-        "Discovery completed all replyable Reels reels=%d failed=%d total=%d replied=%d pending=%d discovered=%d",
-        len(results),
-        failed,
-        dashboard["summary"]["total_comments"],
-        dashboard["summary"]["replied_comments"],
-        dashboard["summary"]["pending_comments"],
-        dashboard["discovered_comments"],
-        extra={"highlight": "summary"},
-    )
-
-    return dashboard
+    return {
+        "status": "ok",
+        "last_updated": last_updated,
+        "reels": {
+            result["media_name"]: result
+            for result in results
+        },
+        "discovered_comments": sum(
+            result["discovered_comments"]
+            for result in results
+        ),
+        "failed_reels": failed,
+    }
