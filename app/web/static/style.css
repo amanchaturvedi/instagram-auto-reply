@@ -319,6 +319,28 @@ tbody tr[data-media-id]:hover {
     color: #6b7280;
 }
 
+.loading-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+}
+
+.loader {
+    width: 14px;
+    height: 14px;
+    border: 2px solid #e5e7eb;
+    border-top-color: #111827;
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .hint {
     margin: -4px 0 16px;
     padding: 11px 13px;
