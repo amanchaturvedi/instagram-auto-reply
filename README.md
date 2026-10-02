@@ -42,3 +42,6 @@ For a network-accessible deployment:
 \`\`\`bash
 python main.py web --host 0.0.0.0 --port 8000
 \`\`\`
+
+
+Reply configuration is managed from the Config tab. You can enable or disable individual Reels and set each Reel's location. The UI stores these settings in the local `reply_config.json` file; this keeps runtime settings separate from Python source code.
