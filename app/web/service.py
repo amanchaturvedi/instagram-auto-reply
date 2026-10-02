@@ -116,7 +116,11 @@ def get_dashboard_summary():
             "instagram_user_id": IG_USER_ID,
             "username": MY_USERNAME,
         },
-        "last_updated": data.get("last_updated"),
+        "catalog_last_updated": data.get("catalog_last_updated"),
+        "insights_last_updated": data.get(
+            "insights_last_updated",
+            data.get("last_updated"),
+        ),
         "reels_tracked": len(reels),
         "total_views": total_views,
     }
