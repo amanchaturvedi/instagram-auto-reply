@@ -1,2 +1,44 @@
 # instagram-auto-reply
-instagram-auto-reply
+
+Instagram comment automation with Reel Insights collection and a lightweight FastAPI dashboard.
+
+## CLI
+
+\`\`\`bash
+python main.py discover <media_name> [count]
+python main.py discover_all [count]
+python main.py process [media_name] [--count N]
+python main.py media
+python main.py insights [media_id]
+python main.py web [--host HOST] [--port PORT]
+\`\`\`
+
+## Web UI
+
+Install dependencies:
+
+\`\`\`bash
+pip install -r requirements.txt
+\`\`\`
+
+Start locally:
+
+\`\`\`bash
+python main.py web
+\`\`\`
+
+Open:
+
+http://127.0.0.1:8000
+
+FastAPI docs:
+
+http://127.0.0.1:8000/docs
+
+The dashboard reads historical Reel data from \`insights.json\` and can trigger a fresh Insights collection. The UI does not expose comment/DM send actions.
+
+For a network-accessible deployment:
+
+\`\`\`bash
+python main.py web --host 0.0.0.0 --port 8000
+\`\`\`
