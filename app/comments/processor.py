@@ -2,7 +2,6 @@ import random
 import time
 
 from app.comments.service import reply_comment, send_dm
-from app.config import REPLY_MESSAGE
 from app.database import (
     get_pending_comments,
     mark_dm_sent,
@@ -21,11 +20,6 @@ def _snippet(text, limit=120):
 
 
 def process(media_name: str | None = None, limit: int | None = None):
-    if not REPLY_MESSAGE.strip():
-        raise RuntimeError(
-            "REPLY_MESSAGE is not configured in app/config.py"
-        )
-
     logger.info(
         "Starting queue processing",
         extra={"highlight": "start"},
