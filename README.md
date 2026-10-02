@@ -35,7 +35,7 @@ FastAPI docs:
 
 http://127.0.0.1:8000/docs
 
-The dashboard reads historical Reel data from \`insights.json\` and can trigger a fresh Insights collection. The UI does not expose comment/DM send actions.
+Insights reads historical Reel data from \`insights.json\`. The Comments tab follows the same terminal workflow: Refresh runs \`discover_all\`, the per-Reel Reply runs \`process(media_name)\`, and Reply All runs \`process()\`.
 
 For a network-accessible deployment:
 
