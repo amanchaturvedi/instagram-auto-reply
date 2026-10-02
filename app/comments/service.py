@@ -1,14 +1,14 @@
 import random
 
 from app import api
-from app.config import DM_MESSAGES, MEDIA, MY_USERNAME, REPLY_MESSAGE
+from app.config import DM_MESSAGES, get_media_config, REPLY_MESSAGE
 from app.logger import logger
 
 
 def get_dm_message(media_name):
     template = random.choice(DM_MESSAGES)
     return template.format(
-        location=MEDIA[media_name]["location"]
+        location=get_media_config(media_name)["location"]
     )
 
 
