@@ -292,12 +292,6 @@ def api_reply_comments_for_reel(media_id: str):
 
 @app.post("/api/comments/reply")
 def api_reply_comments():
-    if not REPLY_MESSAGE.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="Set REPLY_MESSAGE in app/config.py before replying.",
-        )
-
     logger.info(
         "Web Reply All process requested",
         extra={"highlight": "start"},
