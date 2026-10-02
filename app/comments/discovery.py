@@ -1,5 +1,5 @@
 from app.comments.service import get_comments, should_reply
-from app.config import MEDIA, MY_USERNAME, REPLY_MESSAGE, REPLY_MESSAGES
+from app.config import MY_USERNAME, REPLY_MESSAGE, REPLY_MESSAGES, get_replyable_media
 from app.database import enqueue
 from app.logger import logger
 
@@ -25,7 +25,7 @@ def discover(media_name: str, fetch_count: int):
         extra={"highlight": "start"},
     )
 
-    media_id = MEDIA[media_name]["media_id"]
+    media_id = get_replyable_media()[media_name]["media_id"]
 
     try:
         comments = list(get_comments(media_id, fetch_count))
@@ -149,11 +149,11 @@ def discover(media_name: str, fetch_count: int):
 def discover_all(fetch_count: int):
     logger.info(
         "Starting discovery for %d media",
-        len(MEDIA),
+        len(get_replyable_media()),
         extra={"highlight": "start"},
     )
 
-    for media_name, media in MEDIA.items():
+    for media_name, media in get_replyable_media().items():
         logger.info(
             "Discovering media=%s media_id=%s",
             media_name,
