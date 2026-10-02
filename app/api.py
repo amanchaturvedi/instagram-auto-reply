@@ -44,23 +44,23 @@ def _request(method, url, *, params=None, data=None, json=None, headers=None):
     return response
 
 
-def get_comments(media_id: str, limit: int):
+def get_comments(media_id: str, limit: int | None):
     url = f"{BASE_URL}/{media_id}/comments"
 
     params = {
         "fields": "id,text,username,from,parent_id,hidden,timestamp",
         "access_token": ACCESS_TOKEN,
-        "limit": min(limit, 500),
+        "limit": min(limit, 500) if limit is not None else 500,
     }
 
     remaining = limit
     page = 1
 
-    while url and remaining > 0:
+    while url and (remaining is None or remaining > 0):
         logger.debug(
-            "Fetching comments page=%d remaining=%d media_id=%s",
+            "Fetching comments page=%d remaining=%s media_id=%s",
             page,
-            remaining,
+            remaining if remaining is not None else "all",
             media_id,
         )
 
@@ -83,10 +83,12 @@ def get_comments(media_id: str, limit: int):
 
         for comment in comments:
             yield comment
-            remaining -= 1
 
-            if remaining == 0:
-                break
+            if remaining is not None:
+                remaining -= 1
+
+                if remaining == 0:
+                    break
 
         url = data.get("paging", {}).get("next")
         params = None
@@ -220,7 +222,7 @@ def get_media_by_id(media_id: str):
         "GET",
         f"{BASE_URL}/{media_id}",
         params={
-            "fields": "id,caption,media_type,media_product_type,timestamp",
+            "fields": "id,caption,comments_count,media_type,media_product_type,timestamp",
             "access_token": ACCESS_TOKEN,
         },
     )
