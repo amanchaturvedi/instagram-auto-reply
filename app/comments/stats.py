@@ -4,7 +4,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from app.comments.service import get_comments, should_reply
-from app.config import MEDIA, MY_USERNAME
+from app.config import MY_USERNAME, get_replyable_media
 from app.instagram import get_media_by_id
 from app.logger import logger
 
@@ -127,7 +127,7 @@ def refresh_comment_stats():
 
     failed = 0
 
-    for media_name, configured_media in MEDIA.items():
+    for media_name, configured_media in get_replyable_media().items():
         try:
             reel = _scan_media(media_name, configured_media)
             stats["reels"][media_name] = reel
