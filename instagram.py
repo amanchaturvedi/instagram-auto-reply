@@ -180,7 +180,7 @@ def get_media():
     url = f"{BASE_URL}/{IG_USER_ID}/media"
 
     params = {
-        "fields": "id,caption,comments_count",
+        "fields": "id,caption,comments_count,media_type,media_product_type,timestamp",
         "access_token": ACCESS_TOKEN,
     }
 
@@ -196,3 +196,46 @@ def get_media():
         paging = data.get("paging", {})
         url = paging.get("next")
         params = None  # next already contains the access token & cursor
+
+REEL_INSIGHT_METRICS = [
+    "views",
+    "reach",
+    "likes",
+    "comments",
+    "shares",
+    "saved",
+    "total_interactions",
+    "ig_reels_avg_watch_time",
+    "ig_reels_video_view_total_time",
+    "reels_skip_rate",
+]
+
+
+def get_media_insights(media_id: str, metrics=None):
+    if metrics is None:
+        metrics = REEL_INSIGHT_METRICS
+
+    url = f"{BASE_URL}/{media_id}/insights"
+    params = {
+        "metric": ",".join(metrics),
+        "access_token": ACCESS_TOKEN,
+    }
+
+    logger.info(
+        "Fetching insights media_id=%s metrics=%s",
+        media_id,
+        ",".join(metrics),
+    )
+
+    response = requests.get(url, params=params, timeout=30)
+
+    if response.status_code >= 400:
+        logger.error(
+            "Failed to fetch insights media_id=%s status=%s body=%s",
+            media_id,
+            response.status_code,
+            _response_body(response),
+        )
+        response.raise_for_status()
+
+    return response.json()
