@@ -1,7 +1,7 @@
 import random
 
 from app import api
-from app.config import DM_MESSAGES, get_media_config, REPLY_MESSAGE
+from app.config import DM_MESSAGES, get_media_config
 from app.logger import logger
 
 
@@ -39,20 +39,16 @@ def should_reply(text):
     return any(k in text for k in keywords)
 
 
+PUBLIC_REPLY_MESSAGE = "Please check DM"
+
+
 def reply_comment(comment_id):
-    message = REPLY_MESSAGE.strip()
-
-    if not message:
-        raise RuntimeError(
-            "REPLY_MESSAGE is not configured in app/config.py"
-        )
-
     logger.info(
         "Posting public reply comment_id=%s",
         comment_id,
     )
 
-    api.reply_comment(comment_id, message)
+    api.reply_comment(comment_id, PUBLIC_REPLY_MESSAGE)
 
 
 def send_dm(comment_id, media_name):
