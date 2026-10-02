@@ -1,10 +1,11 @@
 import json
-import os
-
 from app.insights.collector import _load_insights, _save_insights
 from app.instagram import get_media
 from app.logger import logger
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
+IST = ZoneInfo("Asia/Kolkata")
 
 def refresh_reel_catalog():
     data = _load_insights()
@@ -57,7 +58,7 @@ def refresh_reel_catalog():
         if changed:
             updated += 1
 
-    data["last_updated"] = data.get("last_updated")
+    data["catalog_last_updated"] = datetime.now(IST).isoformat(timespec="seconds")
     _save_insights(data)
 
     logger.info(
