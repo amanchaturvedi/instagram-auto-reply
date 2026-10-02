@@ -12,7 +12,7 @@ from app.config import (
     get_replyable_media,
     save_reply_config,
 )
-from app.database import get_comment_dashboard
+from app.database import get_pending_count_by_media
 from app.insights.catalog import refresh_reel_catalog
 from app.insights.collector import collect_reel_insights
 from app.logger import logger
@@ -184,9 +184,42 @@ def api_refresh_reel(media_id: str):
     }
 
 
+def _comment_dashboard():
+    replyable_media = get_replyable_media()
+    media_ids = [media["media_id"] for media in replyable_media.values()]
+    pending_counts = get_pending_count_by_media(media_ids)
+
+    reels_by_id = {
+        reel["media_id"]: reel
+        for reel in get_reels()
+        if reel.get("media_id")
+    }
+
+    reels = {}
+
+    for media_name, media in replyable_media.items():
+        media_id = media["media_id"]
+        catalog_reel = reels_by_id.get(media_id, {})
+
+        reels[media_name] = {
+            "media_name": media_name,
+            "media_id": media_id,
+            "caption": catalog_reel.get("caption"),
+            "timestamp": catalog_reel.get("timestamp"),
+            "total_comments": int(catalog_reel.get("comments_count") or 0),
+            "pending_comments": int(pending_counts.get(media_id, 0)),
+        }
+
+    return {
+        "status": "ok",
+        "last_updated": None,
+        "reels": reels,
+    }
+
+
 @app.get("/api/comments")
 def api_comments():
-    return get_comment_dashboard(get_replyable_media())
+    return _comment_dashboard()
 
 
 def _validate_comment_limit(limit):
@@ -208,7 +241,7 @@ def api_refresh_comments(limit: int = COMMENT_REPLY_SCAN_LIMIT):
     )
 
     discover_all(limit)
-    return get_comment_dashboard(get_replyable_media())
+    return _comment_dashboard()
 
 
 @app.post("/api/comments/refresh/{media_id}")
@@ -234,7 +267,7 @@ def api_refresh_comments_for_reel(
     )
 
     discover(media_name, limit)
-    return get_comment_dashboard(get_replyable_media())
+    return _comment_dashboard()
 
 
 def _replyable_media_name(media_id):
@@ -273,7 +306,7 @@ def api_reply_comments_for_reel(media_id: str):
     return {
         "status": "ok",
         "processing": result,
-        "comments": get_comment_dashboard(get_replyable_media()),
+        "comments": _comment_dashboard(),
     }
 
 
@@ -295,7 +328,7 @@ def api_reply_comments():
     return {
         "status": "ok",
         "processing": result,
-        "comments": get_comment_dashboard(get_replyable_media()),
+        "comments": _comment_dashboard(),
     }
 
 
