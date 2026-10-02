@@ -1,20 +1,8 @@
-import itertools
 import random
 
 from app import api
-from app.config import DM_MESSAGES, MEDIA, MY_USERNAME
+from app.config import DM_MESSAGES, MEDIA, MY_USERNAME, REPLY_MESSAGE
 from app.logger import logger
-
-REPLIES = [
-    "Please check DM",
-    "Please check your DM",
-    "Shared the location in DM",
-    "I've sent you the location in DM",
-    "Location sent! Check your DM",
-    "Sent you the location",
-]
-
-reply_cycle = itertools.cycle(REPLIES)
 
 
 def get_dm_message(media_name):
@@ -24,11 +12,11 @@ def get_dm_message(media_name):
     )
 
 
-def get_comments(media_id: str, limit: int):
+def get_comments(media_id: str, limit: int | None):
     logger.info(
-        "Fetching up to %d comments for media_id=%s",
-        limit,
+        "Fetching comments for media_id=%s limit=%s",
         media_id,
+        limit if limit is not None else "all",
     )
     yield from api.get_comments(media_id, limit)
 
@@ -52,7 +40,12 @@ def should_reply(text):
 
 
 def reply_comment(comment_id):
-    message = next(reply_cycle)
+    message = REPLY_MESSAGE.strip()
+
+    if not message:
+        raise RuntimeError(
+            "REPLY_MESSAGE is not configured in app/config.py"
+        )
 
     logger.info(
         "Posting public reply comment_id=%s",
