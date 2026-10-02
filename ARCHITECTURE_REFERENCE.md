@@ -80,6 +80,11 @@ instagram-auto-reply/
 │   ├── database.py
 │   ├── instagram.py
 │   ├── logger.py
+│   ├── analytics/
+│   │   ├── metrics.py
+│   │   ├── baseline.py
+│   │   ├── posting_time.py
+│   │   └── analyzer.py
 │   ├── comments/
 │   │   ├── service.py
 │   │   ├── discovery.py
@@ -152,7 +157,7 @@ Responsibilities:
 
 All outbound Instagram HTTP should stay centralized here.
 
-## 3.3 app/instagram.py
+## 3.4 app/instagram.py
 
 Shared Instagram/media facade.
 
@@ -164,7 +169,7 @@ Exports:
 
 Also defines the canonical 10-metric REEL_INSIGHT_METRICS list.
 
-## 3.4 app/config.py
+## 3.5 app/config.py
 
 Environment/static integration settings plus a configuration facade.
 
@@ -187,7 +192,7 @@ The module exposes:
 
 The public reply message is behavior in comments/service.py.
 
-## 3.5 app/database.py
+## 3.6 app/database.py
 
 SQLite persistence boundary.
 
@@ -204,7 +209,7 @@ Owns:
 
 No ORM or repository class layer is used.
 
-## 3.6 app/comments/service.py
+## 3.7 app/comments/service.py
 
 Comment business helpers.
 
@@ -235,7 +240,7 @@ Public reply:
 Please check DM
 ~~~
 
-## 3.7 app/comments/discovery.py
+## 3.8 app/comments/discovery.py
 
 Comment discovery and queueing.
 
@@ -254,7 +259,7 @@ Flow:
 
 discover_all loops over all enabled Reels and continues after per-Reel failures.
 
-## 3.8 app/comments/processor.py
+## 3.9 app/comments/processor.py
 
 Durable queue processor.
 
@@ -281,7 +286,7 @@ DM_SENT -> retry counter increment
 
 The processor sleeps for a random 5–8 seconds between comments.
 
-## 3.9 app/insights/catalog.py
+## 3.10 app/insights/catalog.py
 
 Reel catalog discovery.
 
@@ -298,7 +303,7 @@ refresh_reel_catalog():
 
 It does not collect Insights for every Reel.
 
-## 3.10 app/insights/collector.py
+## 3.11 app/insights/collector.py
 
 Insight snapshot collection.
 
@@ -313,7 +318,7 @@ collect_reel_insights(media_id=None):
 
 Snapshot identity is collected_at.
 
-## 3.11 app/web/service.py
+## 3.12 app/web/service.py
 
 Dashboard read model / formatting layer.
 
@@ -327,7 +332,7 @@ Owns:
 - building dashboard summary
 - health response
 
-## 3.12 app/web/server.py
+## 3.13 app/web/server.py
 
 FastAPI presentation/API layer.
 
