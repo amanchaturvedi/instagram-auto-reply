@@ -3,7 +3,12 @@ from zoneinfo import ZoneInfo
 
 from app.comments.service import get_comments, should_reply
 from app.config import MY_USERNAME, REPLY_MESSAGE, REPLY_MESSAGES, get_replyable_media
-from app.database import enqueue
+from app.database import (
+    enqueue,
+    get_comment_dashboard,
+    mark_done,
+    upsert_comment_media_stats,
+)
 from app.instagram import get_media_by_id
 from app.logger import logger
 
@@ -44,7 +49,7 @@ def discover(media_name: str, fetch_count: int):
         raise
 
     processed = set()
-    eligible_ids = set()
+    comments_by_id = {comment["id"]: comment for comment in comments}
     discovered = 0
     scanned_user_comments = 0
     skipped_own_reply = 0
@@ -107,23 +112,49 @@ def discover(media_name: str, fetch_count: int):
         if scanned_user_comments >= fetch_count:
             break
 
-    replied_comments = len(
-        eligible_ids.intersection(processed)
-    )
-    pending_comments = len(eligible_ids) - replied_comments
+    for parent_id in processed:
+        parent_comment = comments_by_id.get(parent_id)
+
+        if parent_comment is None:
+            continue
+
+        if not should_reply(parent_comment.get("text") or ""):
+            continue
+
+        if enqueue(parent_comment, media_name, media_id):
+            logger.debug(
+                "Recorded existing public reply in queue history comment_id=%s",
+                parent_id,
+            )
+
+        mark_done(parent_id)
 
     total_comments = metadata.get("comments_count")
     if total_comments is None:
         total_comments = len(comments)
 
+    last_updated = datetime.now(
+        ZoneInfo("Asia/Kolkata")
+    ).isoformat(timespec="seconds")
+
+    upsert_comment_media_stats(
+        media_name=media_name,
+        media_id=media_id,
+        caption=metadata.get("caption"),
+        timestamp=metadata.get("timestamp"),
+        total_comments=total_comments,
+        discovered_comments=discovered,
+        scanned_comments=len(comments),
+        last_updated=last_updated,
+    )
+
+    reel_dashboard = get_comment_dashboard(
+        {media_name: configured_media}
+    )
+    reel_stats = reel_dashboard["reels"][media_name]
+
     result = {
-        "media_name": media_name,
-        "media_id": media_id,
-        "caption": metadata.get("caption"),
-        "timestamp": metadata.get("timestamp"),
-        "total_comments": int(total_comments),
-        "replied_comments": replied_comments,
-        "pending_comments": pending_comments,
+        **reel_stats,
         "discovered_comments": discovered,
         "scanned_comments": len(comments),
     }
@@ -163,32 +194,25 @@ def discover_all(fetch_count: int):
                 media_name,
             )
 
-    summary = {
-        "total_comments": sum(r["total_comments"] for r in results),
-        "replied_comments": sum(r["replied_comments"] for r in results),
-        "pending_comments": sum(r["pending_comments"] for r in results),
-    }
-
-    response = {
-        "status": "ok",
-        "last_updated": datetime.now(
-            ZoneInfo("Asia/Kolkata")
-        ).isoformat(timespec="seconds"),
-        "summary": summary,
-        "reels": {r["media_name"]: r for r in results},
-        "discovered_comments": sum(r["discovered_comments"] for r in results),
-        "failed_reels": failed,
-    }
+    dashboard = get_comment_dashboard(replyable_media)
+    dashboard["last_updated"] = datetime.now(
+        ZoneInfo("Asia/Kolkata")
+    ).isoformat(timespec="seconds")
+    dashboard["discovered_comments"] = sum(
+        result["discovered_comments"]
+        for result in results
+    )
+    dashboard["failed_reels"] = failed
 
     logger.info(
         "Discovery completed all replyable Reels reels=%d failed=%d total=%d replied=%d pending=%d discovered=%d",
         len(results),
         failed,
-        summary["total_comments"],
-        summary["replied_comments"],
-        summary["pending_comments"],
-        response["discovered_comments"],
+        dashboard["summary"]["total_comments"],
+        dashboard["summary"]["replied_comments"],
+        dashboard["summary"]["pending_comments"],
+        dashboard["discovered_comments"],
         extra={"highlight": "summary"},
     )
 
-    return response
+    return dashboard
