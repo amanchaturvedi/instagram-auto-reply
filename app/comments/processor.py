@@ -4,7 +4,6 @@ import time
 from app.comments.service import reply_comment, send_dm
 from app.config import REPLY_MESSAGE
 from app.database import (
-    clear_done,
     get_pending_comments,
     mark_dm_sent,
     mark_done,
@@ -162,8 +161,6 @@ def process(media_name: str | None = None, limit: int | None = None):
         total,
         extra={"highlight": "summary"},
     )
-    clear_done()
-
     return {
         "success": success,
         "failed": failed,
