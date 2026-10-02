@@ -1,33 +1,52 @@
 import sqlite3
-from .logger import logger
+import threading
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from .logger import logger
+
 DB_NAME = "instagram.db"
+DB_TIMEOUT_SECONDS = 30
 
-conn = sqlite3.connect(DB_NAME)
-conn.row_factory = sqlite3.Row
-cursor = conn.cursor()
+_thread_state = threading.local()
 
-# ----------------------------
-# Schema
-# ----------------------------
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS queue(
-    comment_id TEXT PRIMARY KEY,
-    username TEXT,
-    comment TEXT,
-    timestamp TEXT,
-    media_name TEXT NOT NULL,
-    media_id   TEXT NOT NULL,
-    status TEXT DEFAULT 'PENDING',
-    retries INTEGER DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)
-""")
+def _get_db():
+    """
+    Return a SQLite connection/cursor scoped to the current thread.
 
-conn.commit()
+    FastAPI runs synchronous route handlers in worker threads. A single
+    module-level SQLite connection created during import is therefore not safe
+    to reuse from those request threads.
+    """
+
+    if not hasattr(_thread_state, "connection"):
+        connection = sqlite3.connect(
+            DB_NAME,
+            timeout=DB_TIMEOUT_SECONDS,
+        )
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA busy_timeout = 30000")
+
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS queue(
+                comment_id TEXT PRIMARY KEY,
+                username TEXT,
+                comment TEXT,
+                timestamp TEXT,
+                media_name TEXT NOT NULL,
+                media_id   TEXT NOT NULL,
+                status TEXT DEFAULT 'PENDING',
+                retries INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        connection.commit()
+
+        _thread_state.connection = connection
+        _thread_state.cursor = connection.cursor()
+
+    return _thread_state.connection, _thread_state.cursor
 
 
 # ----------------------------
@@ -39,6 +58,8 @@ def enqueue(comment, media_name, media_id):
     Add comment to processing queue.
     Duplicate comment_ids are ignored.
     """
+
+    connection, cursor = _get_db()
 
     cursor.execute("""
         INSERT OR IGNORE INTO queue(
@@ -59,8 +80,9 @@ def enqueue(comment, media_name, media_id):
         media_id
     ))
 
-    conn.commit()
+    connection.commit()
     inserted = cursor.rowcount > 0
+
     if inserted:
         logger.info(
             "Enqueued comment_id=%s username=%s timestamp=%s media_name=%s media_id=%s",
@@ -71,11 +93,17 @@ def enqueue(comment, media_name, media_id):
             media_id
         )
     else:
-        logger.debug("Skipped duplicate queue entry comment_id=%s", comment.get("id"))
+        logger.debug(
+            "Skipped duplicate queue entry comment_id=%s",
+            comment.get("id"),
+        )
 
     return inserted
 
+
 def get_pending_comments(media_name=None, limit=None):
+    connection, cursor = _get_db()
+
     query = """
         SELECT *
         FROM queue
@@ -99,6 +127,7 @@ def get_pending_comments(media_name=None, limit=None):
 
 
 def mark_dm_sent(comment_id):
+    connection, cursor = _get_db()
 
     cursor.execute("""
         UPDATE queue
@@ -106,11 +135,16 @@ def mark_dm_sent(comment_id):
         WHERE comment_id=?
     """, (comment_id,))
 
-    conn.commit()
-    logger.info("Marked DM sent comment_id=%s rows_updated=%d", comment_id, cursor.rowcount)
+    connection.commit()
+    logger.info(
+        "Marked DM sent comment_id=%s rows_updated=%d",
+        comment_id,
+        cursor.rowcount,
+    )
 
 
 def mark_done(comment_id):
+    connection, cursor = _get_db()
 
     cursor.execute("""
         UPDATE queue
@@ -118,11 +152,16 @@ def mark_done(comment_id):
         WHERE comment_id=?
     """, (comment_id,))
 
-    conn.commit()
-    logger.info("Marked comment done comment_id=%s rows_updated=%d", comment_id, cursor.rowcount)
+    connection.commit()
+    logger.info(
+        "Marked comment done comment_id=%s rows_updated=%d",
+        comment_id,
+        cursor.rowcount,
+    )
 
 
 def mark_failed(comment_id):
+    connection, cursor = _get_db()
 
     cursor.execute("""
         UPDATE queue
@@ -139,14 +178,17 @@ def mark_failed(comment_id):
         WHERE comment_id=?
     """, (comment_id,))
 
-    conn.commit()
+    connection.commit()
     rows_updated = cursor.rowcount
+
     cursor.execute("""
         SELECT status, retries
         FROM queue
         WHERE comment_id=?
     """, (comment_id,))
+
     row = cursor.fetchone()
+
     logger.warning(
         "Marked comment failed/retry comment_id=%s status=%s retries=%s rows_updated=%d",
         comment_id,
@@ -157,6 +199,7 @@ def mark_failed(comment_id):
 
 
 def queue_size(status="PENDING"):
+    connection, cursor = _get_db()
 
     cursor.execute("""
         SELECT COUNT(*)
@@ -165,11 +208,18 @@ def queue_size(status="PENDING"):
     """, (status,))
 
     size = cursor.fetchone()[0]
-    logger.debug("Queue size status=%s count=%d", status, size)
+
+    logger.debug(
+        "Queue size status=%s count=%d",
+        status,
+        size,
+    )
+
     return size
 
 
 def clear_done():
+    connection, cursor = _get_db()
 
     cursor.execute("""
         SELECT
@@ -183,10 +233,12 @@ def clear_done():
         WHERE status='DONE'
         ORDER BY timestamp ASC
     """)
+
     rows = cursor.fetchall()
 
     for row in rows:
         comment = " ".join((row["comment"] or "").split())
+
         if len(comment) > 120:
             comment = f"{comment[:117]}..."
 
@@ -206,11 +258,16 @@ def clear_done():
         WHERE status='DONE'
     """)
 
-    conn.commit()
-    logger.info("Cleared done queue entries rows_deleted=%d", cursor.rowcount)
+    connection.commit()
+
+    logger.info(
+        "Cleared done queue entries rows_deleted=%d",
+        cursor.rowcount,
+    )
 
 
 def reset_failed():
+    connection, cursor = _get_db()
 
     cursor.execute("""
         UPDATE queue
@@ -220,8 +277,13 @@ def reset_failed():
         WHERE status='FAILED'
     """)
 
-    conn.commit()
-    logger.info("Reset failed queue entries rows_updated=%d", cursor.rowcount)
+    connection.commit()
+
+    logger.info(
+        "Reset failed queue entries rows_updated=%d",
+        cursor.rowcount,
+    )
+
 
 def utc_to_ist(timestamp):
     if not timestamp:
