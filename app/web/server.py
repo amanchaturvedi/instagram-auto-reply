@@ -332,6 +332,12 @@ def api_reply_comments():
 
     global _last_comment_discovery
 
+    if _last_comment_discovery is not None:
+        _last_comment_discovery = _adjust_stats_after_processing(
+            _last_comment_discovery,
+            result,
+        )
+
     return {
         "status": "ok",
         "processing": result,
