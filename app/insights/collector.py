@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from app.instagram import REEL_INSIGHT_METRICS, get_media, get_media_insights
+from app.instagram import REEL_INSIGHT_METRICS, get_media, get_media_by_id, get_media_insights
 from app.logger import logger
 
 INSIGHTS_FILE = "insights.json"
@@ -114,11 +114,7 @@ def _append_snapshot(reel, collected_at, metrics):
 
 def _get_media_items(media_id=None):
     if media_id:
-        for media in get_media():
-            if media.get("id") == media_id:
-                return [media]
-
-        raise ValueError(f"Media ID not found: {media_id}")
+        return [get_media_by_id(media_id)]
 
     return list(get_media())
 
