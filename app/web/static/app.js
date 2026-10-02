@@ -1,7 +1,27 @@
+const statusEl = document.getElementById("status");
+
+const tabButtons = document.querySelectorAll(".tab-button");
+const tabPanels = document.querySelectorAll(".tab-panel");
+
 const summaryEl = document.getElementById("summary");
 const reelsBody = document.getElementById("reels-body");
-const statusEl = document.getElementById("status");
 const refreshReelsBtn = document.getElementById("refresh-reels-btn");
+
+const commentsSummaryEl = document.getElementById("comments-summary");
+const commentsBody = document.getElementById("comments-body");
+const commentsLastUpdatedEl = document.getElementById("comments-last-updated");
+const refreshCommentsBtn = document.getElementById("refresh-comments-btn");
+const replyCommentsBtn = document.getElementById("reply-comments-btn");
+const replyHint = document.getElementById("reply-hint");
+
+const configUsernameEl = document.getElementById("config-username");
+const configUserIdEl = document.getElementById("config-user-id");
+const configReplyStatusEl = document.getElementById("config-reply-status");
+const configReplyDetailEl = document.getElementById("config-reply-detail");
+const configReplyMessageEl = document.getElementById("config-reply-message");
+const configMediaCountEl = document.getElementById("config-media-count");
+const configTimezoneEl = document.getElementById("config-timezone");
+const configKeywordsEl = document.getElementById("config-keywords");
 
 const reelModal = document.getElementById("reel-modal");
 const reelModalTitle = document.getElementById("reel-modal-title");
@@ -10,11 +30,8 @@ const reelCurrentMetrics = document.getElementById("reel-current-metrics");
 const snapshotsBody = document.getElementById("snapshots-body");
 const closeReelModal = document.getElementById("close-reel-modal");
 
-const commentsModal = document.getElementById("comments-modal");
-const commentsModalTitle = document.getElementById("comments-modal-title");
-const commentsModalMeta = document.getElementById("comments-modal-meta");
-const commentsList = document.getElementById("comments-list");
-const closeCommentsModal = document.getElementById("close-comments-modal");
+let configLoaded = false;
+let commentsLoaded = false;
 
 function formatNumber(value) {
     if (value === null || value === undefined) return "—";
@@ -63,6 +80,17 @@ function escapeHtml(value) {
         .replaceAll("'", "&#039;");
 }
 
+function setStatus(message) {
+    statusEl.textContent = message;
+}
+
+function metricCard(label, value) {
+    return '<div class="metric-card">' +
+        '<div class="metric-label">' + label + '</div>' +
+        '<div class="metric-value">' + value + '</div>' +
+    '</div>';
+}
+
 function renderSummary(data) {
     summaryEl.innerHTML =
         '<div class="card">' +
@@ -105,7 +133,6 @@ function renderReels(reels) {
             '<td>' + formatPercent(metrics.engagement_rate) + '</td>' +
             '<td class="actions-cell">' +
                 '<button class="table-button refresh-one" data-media-id="' + escapeHtml(reel.media_id) + '" ' + (hasInsights ? '' : 'title="Fetch insights"') + '>Refresh</button>' +
-                '<button class="table-button comments-one" data-media-id="' + escapeHtml(reel.media_id) + '">Comments</button>' +
             '</td>' +
         '</tr>';
     }).join("");
@@ -123,17 +150,10 @@ function renderReels(reels) {
             refreshOneReel(button.dataset.mediaId, button);
         });
     });
-
-    reelsBody.querySelectorAll(".comments-one").forEach(function(button) {
-        button.addEventListener("click", function(event) {
-            event.stopPropagation();
-            openComments(button.dataset.mediaId);
-        });
-    });
 }
 
 async function loadDashboard() {
-    statusEl.textContent = "Loading…";
+    setStatus("Loading insights…");
 
     try {
         const responses = await Promise.all([
@@ -150,15 +170,15 @@ async function loadDashboard() {
 
         renderSummary(summary);
         renderReels(reels.reels);
-        statusEl.textContent = "Ready";
+        setStatus("Ready");
     } catch (error) {
-        statusEl.textContent = error.message;
+        setStatus(error.message);
     }
 }
 
 async function refreshReels() {
     refreshReelsBtn.disabled = true;
-    statusEl.textContent = "Refreshing reels…";
+    setStatus("Refreshing reels…");
 
     try {
         const response = await fetch("/api/reels/refresh", { method: "POST" });
@@ -172,10 +192,11 @@ async function refreshReels() {
 
         await loadDashboard();
 
-        statusEl.textContent =
-            result.added + " new Reel" + (result.added === 1 ? "" : "s") + " found";
+        setStatus(
+            result.added + " new Reel" + (result.added === 1 ? "" : "s") + " found"
+        );
     } catch (error) {
-        statusEl.textContent = error.message;
+        setStatus(error.message);
     } finally {
         refreshReelsBtn.disabled = false;
     }
@@ -185,7 +206,7 @@ async function refreshOneReel(mediaId, button) {
     const original = button.textContent;
     button.disabled = true;
     button.textContent = "…";
-    statusEl.textContent = "Refreshing Reel…";
+    setStatus("Refreshing Reel…");
 
     try {
         const response = await fetch(
@@ -199,9 +220,9 @@ async function refreshOneReel(mediaId, button) {
         }
 
         await loadDashboard();
-        statusEl.textContent = "Reel refreshed";
+        setStatus("Reel refreshed");
     } catch (error) {
-        statusEl.textContent = error.message;
+        setStatus(error.message);
     } finally {
         button.disabled = false;
         button.textContent = original;
@@ -252,7 +273,7 @@ async function openReel(mediaId) {
                     '<td>' + formatNumber(m.comments) + '</td>' +
                     '<td>' + formatNumber(m.shares) + '</td>' +
                     '<td>' + formatNumber(m.saved) + '</td>' +
-                    '<td>' + formatSeconds((m.avg_watch_time_ms || null) === null ? null : m.avg_watch_time_ms / 1000) + '</td>' +
+                    '<td>' + formatSeconds(m.avg_watch_time_ms === null || m.avg_watch_time_ms === undefined ? null : m.avg_watch_time_ms / 1000) + '</td>' +
                     '<td>' + formatPercent(m.skip_rate) + '</td>' +
                 '</tr>';
             }).join("");
@@ -260,51 +281,199 @@ async function openReel(mediaId) {
 
         reelModal.classList.remove("hidden");
     } catch (error) {
-        statusEl.textContent = error.message;
+        setStatus(error.message);
     }
 }
 
-function metricCard(label, value) {
-    return '<div class="metric-card">' +
-        '<div class="metric-label">' + label + '</div>' +
-        '<div class="metric-value">' + value + '</div>' +
-    '</div>';
+function renderComments(data) {
+    const summary = data.summary || {};
+
+    commentsSummaryEl.innerHTML =
+        '<div class="card">' +
+            '<div class="card-label">Total comments</div>' +
+            '<div class="card-value">' + formatNumber(summary.total_comments) + '</div>' +
+        '</div>' +
+        '<div class="card">' +
+            '<div class="card-label">Replied comments</div>' +
+            '<div class="card-value">' + formatNumber(summary.replied_comments) + '</div>' +
+        '</div>' +
+        '<div class="card">' +
+            '<div class="card-label">Pending comments</div>' +
+            '<div class="card-value">' + formatNumber(summary.pending_comments) + '</div>' +
+        '</div>';
+
+    commentsLastUpdatedEl.textContent =
+        data.last_updated
+            ? "Last refreshed " + formatTime(data.last_updated)
+            : "Not refreshed yet";
+
+    const reels = Object.values(data.reels || {}).sort(function(a, b) {
+        return String(a.media_name).localeCompare(String(b.media_name));
+    });
+
+    if (!reels.length) {
+        commentsBody.innerHTML =
+            '<tr><td colspan="5" class="empty">No comment stats yet. Click Refresh.</td></tr>';
+        return;
+    }
+
+    commentsBody.innerHTML = reels.map(function(reel) {
+        return '<tr>' +
+            '<td class="reel-cell">' +
+                '<div class="reel-title">' + escapeHtml(reel.media_name) + '</div>' +
+            '</td>' +
+            '<td>' + formatNumber(reel.total_comments) + '</td>' +
+            '<td>' + formatNumber(reel.replied_comments) + '</td>' +
+            '<td>' + formatNumber(reel.pending_comments) + '</td>' +
+            '<td>' + formatNumber(reel.eligible_comments) + '</td>' +
+        '</tr>';
+    }).join("");
 }
 
-async function openComments(mediaId) {
-    commentsModalTitle.textContent = "Comments";
-    commentsModalMeta.textContent = mediaId;
-    commentsList.innerHTML = '<div class="loading">Loading comments…</div>';
-    commentsModal.classList.remove("hidden");
+async function loadComments() {
+    setStatus("Loading comments…");
 
     try {
-        const response = await fetch(
-            "/api/reels/" + encodeURIComponent(mediaId) + "/comments?limit=20"
-        );
+        const response = await fetch("/api/comments");
 
         if (!response.ok) {
-            const body = await response.text();
-            throw new Error(body || "Could not load comments");
+            throw new Error("Could not load comment stats");
         }
 
         const data = await response.json();
+        renderComments(data);
+        commentsLoaded = true;
+        setStatus("Ready");
+    } catch (error) {
+        setStatus(error.message);
+    }
+}
 
-        if (!data.comments.length) {
-            commentsList.innerHTML = '<div class="empty">No comments returned.</div>';
-            return;
+async function refreshComments() {
+    refreshCommentsBtn.disabled = true;
+    setStatus("Refreshing comments…");
+
+    try {
+        const response = await fetch("/api/comments/refresh", { method: "POST" });
+
+        if (!response.ok) {
+            const body = await response.text();
+            throw new Error(body || "Could not refresh comments");
         }
 
-        commentsList.innerHTML = data.comments.map(function(comment) {
-            return '<div class="comment-item">' +
-                '<div class="comment-head">' +
-                    '<strong>' + escapeHtml(comment.username || "unknown") + '</strong>' +
-                    '<span>' + formatTime(comment.timestamp) + '</span>' +
-                '</div>' +
-                '<div class="comment-text">' + escapeHtml(comment.text || "") + '</div>' +
-            '</div>';
-        }).join("");
+        const data = await response.json();
+        renderComments(data);
+        commentsLoaded = true;
+        setStatus("Comments refreshed");
     } catch (error) {
-        commentsList.innerHTML = '<div class="empty">' + escapeHtml(error.message) + '</div>';
+        setStatus(error.message);
+    } finally {
+        refreshCommentsBtn.disabled = false;
+    }
+}
+
+async function replyPendingComments() {
+    if (replyCommentsBtn.disabled) return;
+
+    const confirmed = window.confirm(
+        "This will discover and process pending eligible comments, sending DMs and public replies. Continue?"
+    );
+
+    if (!confirmed) return;
+
+    replyCommentsBtn.disabled = true;
+    refreshCommentsBtn.disabled = true;
+    setStatus("Processing comments…");
+
+    try {
+        const response = await fetch("/api/comments/reply", { method: "POST" });
+
+        if (!response.ok) {
+            const body = await response.text();
+            throw new Error(body || "Could not process comments");
+        }
+
+        const data = await response.json();
+        renderComments(data);
+        commentsLoaded = true;
+        setStatus("Reply run completed");
+    } catch (error) {
+        setStatus(error.message);
+    } finally {
+        refreshCommentsBtn.disabled = false;
+        await loadConfig();
+    }
+}
+
+function renderConfig(data) {
+    configUsernameEl.textContent = "@" + (data.username || "—");
+    configUserIdEl.textContent = data.instagram_user_id || "—";
+
+    const enabled = Boolean(data.reply_enabled);
+
+    configReplyStatusEl.textContent = enabled ? "Enabled" : "Disabled";
+    configReplyStatusEl.className = "config-value " + (enabled ? "positive" : "muted");
+    configReplyDetailEl.textContent = enabled
+        ? "Reply CTA is available in Comments."
+        : "Set REPLY_MESSAGE in app/config.py to enable Reply.";
+
+    configReplyMessageEl.textContent = data.reply_message || "Not configured";
+    configMediaCountEl.textContent = formatNumber(data.monitored_media);
+    configTimezoneEl.textContent = data.timezone || "—";
+
+    configKeywordsEl.innerHTML = (data.reply_keywords || []).map(function(keyword) {
+        return '<span class="tag">' + escapeHtml(keyword) + '</span>';
+    }).join("");
+
+    replyCommentsBtn.disabled = !enabled;
+    if (enabled) {
+        replyHint.classList.add("hidden");
+        replyHint.textContent = "";
+    } else {
+        replyHint.classList.remove("hidden");
+        replyHint.textContent = "Reply is disabled because REPLY_MESSAGE is not set in app/config.py.";
+    }
+
+    configLoaded = true;
+}
+
+async function loadConfig() {
+    try {
+        const response = await fetch("/api/config");
+
+        if (!response.ok) {
+            throw new Error("Could not load config");
+        }
+
+        const data = await response.json();
+        renderConfig(data);
+    } catch (error) {
+        setStatus(error.message);
+    }
+}
+
+function switchTab(tabName) {
+    tabButtons.forEach(function(button) {
+        button.classList.toggle("active", button.dataset.tab === tabName);
+    });
+
+    tabPanels.forEach(function(panel) {
+        panel.classList.toggle("active", panel.id === "tab-" + tabName);
+    });
+
+    if (tabName === "insights") {
+        loadDashboard();
+    } else if (tabName === "comments") {
+        if (!commentsLoaded) {
+            loadComments();
+        } else {
+            loadComments();
+        }
+        if (!configLoaded) {
+            loadConfig();
+        }
+    } else if (tabName === "config") {
+        loadConfig();
     }
 }
 
@@ -312,29 +481,29 @@ function closeModal(modal) {
     modal.classList.add("hidden");
 }
 
+tabButtons.forEach(function(button) {
+    button.addEventListener("click", function() {
+        switchTab(button.dataset.tab);
+    });
+});
+
 refreshReelsBtn.addEventListener("click", refreshReels);
+refreshCommentsBtn.addEventListener("click", refreshComments);
+replyCommentsBtn.addEventListener("click", replyPendingComments);
 
 closeReelModal.addEventListener("click", function() {
     closeModal(reelModal);
-});
-
-closeCommentsModal.addEventListener("click", function() {
-    closeModal(commentsModal);
 });
 
 reelModal.addEventListener("click", function(event) {
     if (event.target === reelModal) closeModal(reelModal);
 });
 
-commentsModal.addEventListener("click", function(event) {
-    if (event.target === commentsModal) closeModal(commentsModal);
-});
-
 document.addEventListener("keydown", function(event) {
     if (event.key === "Escape") {
         closeModal(reelModal);
-        closeModal(commentsModal);
     }
 });
 
 loadDashboard();
+loadConfig();
