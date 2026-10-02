@@ -10,6 +10,20 @@ BASE_URL = "https://graph.instagram.com/v25.0"
 MY_USERNAME = "the_lost_aperture_"
 IG_USER_ID = "27392931747065676"
 
+# Public reply posted after a DM is successfully sent.
+# Leave blank to disable the web Reply action and comment processing.
+REPLY_MESSAGE = "Please check DM"
+
+# Legacy reply markers are kept for duplicate-reply detection of older comments.
+REPLY_MESSAGES = [
+    "Please check DM",
+    "Please check your DM",
+    "Shared the location in DM",
+    "I've sent you the location in DM",
+    "Location sent! Check your DM",
+    "Sent you the location",
+]
+
 MEDIA = {
     "dlf_midtown": {
         "media_id": "18073788290362124",
