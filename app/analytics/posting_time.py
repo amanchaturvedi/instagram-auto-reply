@@ -2,6 +2,8 @@ from collections import defaultdict
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from .metrics import enrich_reel_metrics
+
 IST = ZoneInfo("Asia/Kolkata")
 TARGET_AGE_HOURS = 24
 MAX_AGE_DEVIATION_HOURS = 8
@@ -35,6 +37,12 @@ def posting_features(timestamp):
         "hour": dt.hour,
         "minute": dt.minute,
         "slot": f"{dt.hour:02d}:00-{(dt.hour + 1) % 24:02d}:00",
+        "half_hour_slot": (
+            f"{dt.hour:02d}:{'00' if dt.minute < 30 else '30'}-"
+            f"{dt.hour:02d}:{'30' if dt.minute < 30 else '00'}"
+            if dt.minute < 30
+            else f"{dt.hour:02d}:30-{(dt.hour + 1) % 24:02d}:00"
+        ),
         "is_weekend": dt.weekday() >= 5,
     }
 
@@ -62,7 +70,7 @@ def select_snapshot_at_age(
             snapshot.get("collected_at"),
         )
 
-        if age is None:
+        if age is None or age < 0:
             continue
 
         deviation = abs(age - target_age_hours)
@@ -111,6 +119,7 @@ def _aggregate(values):
 
 def build_posting_time_analysis(reels, target_age_hours=TARGET_AGE_HOURS):
     windows = defaultdict(lambda: defaultdict(list))
+    half_hours = defaultdict(lambda: defaultdict(list))
     weekdays = defaultdict(lambda: defaultdict(list))
     hours = defaultdict(lambda: defaultdict(list))
 
@@ -126,26 +135,34 @@ def build_posting_time_analysis(reels, target_age_hours=TARGET_AGE_HOURS):
         if features is None or selection is None:
             continue
 
-        metrics = selection["snapshot"].get("metrics", {})
+        metrics = enrich_reel_metrics(
+            selection["snapshot"].get("metrics", {})
+        )
         evaluated_reels += 1
 
         score = {
             "views": metrics.get("views"),
             "reach": metrics.get("reach"),
             "likes": metrics.get("likes"),
+            "comments": metrics.get("comments"),
             "shares": metrics.get("shares"),
             "saved": metrics.get("saved"),
             "total_interactions": metrics.get("total_interactions"),
+            "like_rate": metrics.get("like_rate"),
+            "comment_rate": metrics.get("comment_rate"),
+            "share_rate": metrics.get("share_rate"),
+            "save_rate": metrics.get("save_rate"),
+            "interaction_rate": metrics.get("interaction_rate"),
         }
 
-        slot = features["slot"]
-        weekday = features["day_of_week"]
-        hour = str(features["hour"])
-
-        for key, value in score.items():
-            windows[slot][key].append(value)
-            weekdays[weekday][key].append(value)
-            hours[hour][key].append(value)
+        for group in (
+            windows[features["slot"]],
+            half_hours[features["half_hour_slot"]],
+            weekdays[features["day_of_week"]],
+            hours[str(features["hour"])],
+        ):
+            for key, value in score.items():
+                group[key].append(value)
 
     def finalize(groups):
         result = {}
@@ -163,4 +180,5 @@ def build_posting_time_analysis(reels, target_age_hours=TARGET_AGE_HOURS):
         "by_hour": finalize(hours),
         "by_weekday": finalize(weekdays),
         "by_slot": finalize(windows),
+        "by_half_hour_slot": finalize(half_hours),
     }
