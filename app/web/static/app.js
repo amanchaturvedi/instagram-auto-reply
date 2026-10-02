@@ -36,12 +36,14 @@ function formatTime(value) {
 
     if (Number.isNaN(date.getTime())) return value;
 
-    return new Intl.DateTimeFormat("en-IN", {
+    const formatted = new Intl.DateTimeFormat("en-IN", {
         timeZone: "Asia/Kolkata",
         hour: "2-digit",
         minute: "2-digit",
         hour12: true,
     }).format(date);
+
+    return formatted.replace(/am/i, "AM").replace(/pm/i, "PM");
 }
 
 function shortText(value, limit) {
