@@ -79,6 +79,7 @@ def _upsert_reel(data, media):
             "media_type": media.get("media_type"),
             "media_product_type": media.get("media_product_type"),
             "timestamp": media.get("timestamp"),
+            "comments_count": media.get("comments_count"),
             "snapshots": [],
         },
     )
@@ -88,6 +89,7 @@ def _upsert_reel(data, media):
         "media_type",
         "media_product_type",
         "timestamp",
+        "comments_count",
     ):
         if media.get(key) is not None:
             reel[key] = media[key]
