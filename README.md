@@ -255,7 +255,6 @@ Actions:
 The table shows:
 
 - Reel name
-- Total comments
 - Pending comments
 - Actions
 
@@ -451,7 +450,7 @@ It gets:
 
 - enabled/replyable Reels from SQLite reply_config
 - pending counts from SQLite queue
-- captions/timestamps/comment totals from insights.json
+- Reel captions/timestamps from insights.json
 
 It does not discover comments.
 
@@ -467,7 +466,6 @@ Example:
       "media_id": "123",
       "caption": "Example",
       "timestamp": "...",
-      "total_comments": 250,
       "pending_comments": 14
     }
   }
