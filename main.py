@@ -2,7 +2,7 @@ import argparse
 import json
 
 from app.comments import discover, discover_all, process
-from app.config import MEDIA
+from app.config import get_replyable_media
 from app.insights.collector import collect_reel_insights
 from app.instagram import get_media
 from app.logger import logger
@@ -26,8 +26,7 @@ def main():
     )
     discover_parser.add_argument(
         "media_name",
-        choices=MEDIA.keys(),
-        help="Media to discover comments from",
+        help="Configured Reel name",
     )
     discover_parser.add_argument(
         "count",
@@ -44,9 +43,8 @@ def main():
     process_parser.add_argument(
         "media_name",
         nargs="?",
-        choices=MEDIA.keys(),
         default=None,
-        help="Media to process. If omitted, processes all media.",
+        help="Configured Reel name. If omitted, processes all pending comments.",
     )
     process_parser.add_argument(
         "-n",
@@ -103,6 +101,8 @@ def main():
     args = parser.parse_args()
 
     if args.command == "discover":
+        if args.media_name not in get_replyable_media():
+            parser.error("Unknown or disabled Reel: " + args.media_name)
         discover(args.media_name, args.count)
 
     elif args.command == "process":
