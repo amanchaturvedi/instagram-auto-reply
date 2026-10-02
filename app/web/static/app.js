@@ -37,6 +37,7 @@ function formatTime(value) {
     if (Number.isNaN(date.getTime())) return value;
 
     return new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
         hour: "2-digit",
         minute: "2-digit",
         hour12: true,
@@ -67,12 +68,12 @@ function renderSummary(data) {
             '<div class="card-value">' + formatNumber(data.reels_tracked) + '</div>' +
         '</div>' +
         '<div class="card">' +
-            '<div class="card-label">Latest refresh</div>' +
-            '<div class="card-value">' + formatTime(data.last_updated) + '</div>' +
+            '<div class="card-label">Reels refreshed</div>' +
+            '<div class="card-value">' + formatTime(data.catalog_last_updated) + '</div>' +
         '</div>' +
         '<div class="card">' +
-            '<div class="card-label">Total current views</div>' +
-            '<div class="card-value">' + formatNumber(data.total_views) + '</div>' +
+            '<div class="card-label">Insights refreshed</div>' +
+            '<div class="card-value">' + formatTime(data.insights_last_updated) + '</div>' +
         '</div>';
 }
 
