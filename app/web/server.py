@@ -84,26 +84,19 @@ def _empty_comment_stats():
     }
 
 
-def _adjust_stats_after_processing(stats, media_id, processing):
+def _adjust_stats_after_processing(stats, processing):
     updated = deepcopy(stats)
-
-    success = int(processing.get("success", 0))
-
-    if not success:
-        return updated
+    success_by_media = processing.get("success_by_media", {})
 
     for reel in updated.get("reels", {}).values():
-        if reel.get("media_id") != media_id:
-            continue
-
+        media_name = reel.get("media_name")
         moved = min(
-            success,
+            int(success_by_media.get(media_name, 0)),
             int(reel.get("pending_comments", 0)),
         )
 
         reel["pending_comments"] -= moved
         reel["replied_comments"] += moved
-        break
 
     updated["summary"]["pending_comments"] = sum(
         int(reel.get("pending_comments", 0))
@@ -115,7 +108,6 @@ def _adjust_stats_after_processing(stats, media_id, processing):
     )
 
     return updated
-
 
 def _config_reels():
     config_map = get_reply_config_map()
@@ -313,7 +305,6 @@ def api_reply_comments_for_reel(media_id: str):
     if _last_comment_discovery is not None:
         _last_comment_discovery = _adjust_stats_after_processing(
             _last_comment_discovery,
-            media_id,
             result,
         )
 
@@ -340,18 +331,6 @@ def api_reply_comments():
     result = process()
 
     global _last_comment_discovery
-
-    if _last_comment_discovery is not None:
-        for media_id, reel in list(
-            (item.get("media_id"), item)
-            for item in _last_comment_discovery.get("reels", {}).values()
-        ):
-            if not media_id:
-                continue
-
-            # Process() does not expose per-media success counts, so totals
-            # remain as the last discovery snapshot until the next Refresh.
-            continue
 
     return {
         "status": "ok",
