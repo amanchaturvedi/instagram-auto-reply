@@ -14,8 +14,12 @@ REEL_INSIGHT_METRICS = [
 ]
 
 
-def get_media():
-    return api.get_media()
+def get_media(stop_ids=None):
+    return api.get_media(stop_ids=stop_ids)
+
+
+def get_media_by_id(media_id: str):
+    return api.get_media_by_id(media_id)
 
 
 def get_media_insights(media_id: str, metrics=None):
