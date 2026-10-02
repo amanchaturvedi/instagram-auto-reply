@@ -10,7 +10,6 @@ const refreshReelsBtn = document.getElementById("refresh-reels-btn");
 const commentsBody = document.getElementById("comments-body");
 const refreshCommentsBtn = document.getElementById("refresh-comments-btn");
 const replyCommentsBtn = document.getElementById("reply-comments-btn");
-const replyHint = document.getElementById("reply-hint");
 const commentLimitInput = document.getElementById("comment-limit-input");
 const saveConfigBtn = document.getElementById("save-config-btn");
 const configReelsBody = document.getElementById("config-reels-body");
@@ -18,9 +17,6 @@ const configReelsCount = document.getElementById("config-reels-count");
 
 const configUsernameEl = document.getElementById("config-username");
 const configUserIdEl = document.getElementById("config-user-id");
-const configReplyStatusEl = document.getElementById("config-reply-status");
-const configReplyDetailEl = document.getElementById("config-reply-detail");
-const configReplyMessageEl = document.getElementById("config-reply-message");
 
 const reelModal = document.getElementById("reel-modal");
 const reelModalTitle = document.getElementById("reel-modal-title");
@@ -29,7 +25,6 @@ const reelCurrentMetrics = document.getElementById("reel-current-metrics");
 const snapshotsBody = document.getElementById("snapshots-body");
 const closeReelModal = document.getElementById("close-reel-modal");
 
-let configLoaded = false;
 let commentsLoaded = false;
 
 function formatNumber(value) {
@@ -311,7 +306,6 @@ async function openReel(mediaId) {
 }
 
 function renderComments(data) {
-    replyCommentsBtn.disabled = !Boolean(window.dashboardReplyEnabled);
 
     const reels = Object.values(data.reels || {}).sort(function(a, b) {
         return String(a.media_name).localeCompare(String(b.media_name));
@@ -324,7 +318,7 @@ function renderComments(data) {
     }
 
     commentsBody.innerHTML = reels.map(function(reel) {
-        const canReply = Boolean(window.dashboardReplyEnabled) && Number(reel.pending_comments || 0) > 0;
+        const canReply = Number(reel.pending_comments || 0) > 0;
 
         return '<tr>' +
             '<td class="reel-cell">' +
@@ -550,33 +544,11 @@ async function replyPendingComments() {
 }
 
 function renderConfig(data) {
-    window.dashboardReplyEnabled = Boolean(data.reply_enabled);
-
     configUsernameEl.textContent = "@" + (data.username || "—");
     configUserIdEl.textContent = data.instagram_user_id || "—";
 
-    const enabled = Boolean(data.reply_enabled);
-
-    configReplyStatusEl.textContent = enabled ? "Enabled" : "Disabled";
-    configReplyStatusEl.className = "config-value " + (enabled ? "positive" : "muted");
-    configReplyDetailEl.textContent = enabled
-        ? "Reply CTA is available in Comments."
-        : "Set REPLY_MESSAGE in app/config.py to enable Reply.";
-
-    configReplyMessageEl.textContent = data.reply_message || "Not configured";
-
     renderConfigReels(data.reels || []);
 
-    replyCommentsBtn.disabled = !enabled;
-    if (enabled) {
-        replyHint.classList.add("hidden");
-        replyHint.textContent = "";
-    } else {
-        replyHint.classList.remove("hidden");
-        replyHint.textContent = "Reply is disabled because REPLY_MESSAGE is not set in app/config.py.";
-    }
-
-    configLoaded = true;
 }
 
 function renderConfigReels(reels) {
