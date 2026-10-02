@@ -163,8 +163,9 @@ def send_dm(comment_id: str, message: str):
     return False, error
 
 
-def get_media():
+def get_media(stop_ids=None):
     url = f"{BASE_URL}/{IG_USER_ID}/media"
+    stop_ids = set(stop_ids or [])
 
     params = {
         "fields": "id,caption,comments_count,media_type,media_product_type,timestamp",
@@ -178,6 +179,8 @@ def get_media():
         data = response.json()
 
         for media in data.get("data", []):
+            if media.get("id") in stop_ids:
+                return
             yield media
 
         url = data.get("paging", {}).get("next")
@@ -208,5 +211,29 @@ def get_media_insights(media_id: str, metrics):
             _response_body(response),
         )
         response.raise_for_status()
+
+    return response.json()
+
+
+def get_media_by_id(media_id: str):
+    response = _request(
+        "GET",
+        f"{BASE_URL}/{media_id}",
+        params={
+            "fields": "id,caption,media_type,media_product_type,timestamp",
+            "access_token": ACCESS_TOKEN,
+        },
+    )
+
+    try:
+        response.raise_for_status()
+    except requests.HTTPError:
+        logger.exception(
+            "Failed to fetch media media_id=%s status=%s body=%s",
+            media_id,
+            response.status_code,
+            _response_body(response),
+        )
+        raise
 
     return response.json()
