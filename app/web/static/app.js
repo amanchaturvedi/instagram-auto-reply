@@ -22,9 +22,6 @@ const configUserIdEl = document.getElementById("config-user-id");
 const configReplyStatusEl = document.getElementById("config-reply-status");
 const configReplyDetailEl = document.getElementById("config-reply-detail");
 const configReplyMessageEl = document.getElementById("config-reply-message");
-const configMediaCountEl = document.getElementById("config-media-count");
-const configTimezoneEl = document.getElementById("config-timezone");
-const configKeywordsEl = document.getElementById("config-keywords");
 
 const reelModal = document.getElementById("reel-modal");
 const reelModalTitle = document.getElementById("reel-modal-title");
@@ -514,12 +511,6 @@ function renderConfig(data) {
         : "Set REPLY_MESSAGE in app/config.py to enable Reply.";
 
     configReplyMessageEl.textContent = data.reply_message || "Not configured";
-    configMediaCountEl.textContent = formatNumber(data.monitored_media);
-    configTimezoneEl.textContent = data.timezone || "—";
-
-    configKeywordsEl.innerHTML = (data.reply_keywords || []).map(function(keyword) {
-        return '<span class="tag">' + escapeHtml(keyword) + '</span>';
-    }).join("");
 
     renderConfigReels(data.reels || []);
 
@@ -640,14 +631,8 @@ function switchTab(tabName) {
     if (tabName === "insights") {
         loadDashboard();
     } else if (tabName === "comments") {
-        if (!commentsLoaded) {
-            loadComments();
-        } else {
-            loadComments();
-        }
-        if (!configLoaded) {
-            loadConfig();
-        }
+        loadComments();
+        loadConfig();
     } else if (tabName === "config") {
         loadConfig();
     }
