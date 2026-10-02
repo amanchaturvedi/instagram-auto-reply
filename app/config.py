@@ -173,57 +173,17 @@ Enjoy exploring! ✨
 Follow @the_lost_aperture_ for more hidden gems ❤️"""
 ]
 
-def _default_replyable_media():
-    return {
-        media_name: {
-            "media_id": media["media_id"],
-            "location": media["location"],
-        }
-        for media_name, media in MEDIA.items()
-    }
-
-
 def load_reply_config():
-    from .database import (
-        get_reply_config_map,
-        is_reply_config_initialized,
-        replace_reply_config,
-        seed_reply_config,
-    )
+    from .database import get_reply_config_map, seed_reply_config
 
-    if not is_reply_config_initialized():
-        legacy_path = "reply_config.json"
+    config = get_reply_config_map()
 
-        if os.path.exists(legacy_path):
-            import json
-
-            with open(legacy_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-
-            if not isinstance(data, dict):
-                raise ValueError(f"{legacy_path} must contain a JSON object")
-
-            legacy_entries = []
-
-            for media_id, entry in data.get("replyable_reels", {}).items():
-                legacy_entries.append(
-                    {
-                        "media_id": str(media_id),
-                        "media_name": str(
-                            entry.get("media_name") or f"reel_{media_id}"
-                        ),
-                        "location": str(entry.get("location") or ""),
-                        "enabled": bool(entry.get("enabled")),
-                    }
-                )
-
-            replace_reply_config(legacy_entries)
-
-        else:
-            seed_reply_config(MEDIA)
+    if not config:
+        seed_reply_config(MEDIA)
+        config = get_reply_config_map()
 
     return {
-        "replyable_reels": get_reply_config_map()
+        "replyable_reels": config
     }
 
 
@@ -289,14 +249,14 @@ def get_replyable_media():
 
 
 def get_media_config(media_name):
-    for configured_name, media in get_reply_config_map().items():
+    for media_id, media in get_reply_config_map().items():
         configured_media_name = str(
-            media.get("media_name") or f"reel_{configured_name}"
+            media.get("media_name") or f"reel_{media_id}"
         )
 
         if configured_media_name == media_name:
             return {
-                "media_id": configured_name,
+                "media_id": media_id,
                 "location": str(media.get("location") or ""),
             }
 
