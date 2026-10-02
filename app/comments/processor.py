@@ -42,6 +42,8 @@ def process(media_name: str | None = None, limit: int | None = None):
 
     success = 0
     failed = 0
+    success_by_media = {}
+    failed_by_media = {}
     total = len(comments)
 
     for index, comment in enumerate(comments, start=1):
@@ -86,6 +88,9 @@ def process(media_name: str | None = None, limit: int | None = None):
                 )
                 mark_failed(comment_id)
                 failed += 1
+                failed_by_media[queued_media] = (
+                    failed_by_media.get(queued_media, 0) + 1
+                )
                 continue
 
             if not ok:
@@ -109,6 +114,9 @@ def process(media_name: str | None = None, limit: int | None = None):
             reply_comment(comment_id)
             mark_done(comment_id)
             success += 1
+            success_by_media[queued_media] = (
+                success_by_media.get(queued_media, 0) + 1
+            )
 
             logger.info(
                 "Completed queued comment %d/%d media=%s comment_id=%s username=%s",
@@ -131,6 +139,9 @@ def process(media_name: str | None = None, limit: int | None = None):
 
             mark_failed(comment_id)
             failed += 1
+            failed_by_media[queued_media] = (
+                failed_by_media.get(queued_media, 0) + 1
+            )
 
         delay = random.uniform(*COMMENT_PROCESSING_DELAY_SECONDS)
         logger.info(
@@ -154,4 +165,6 @@ def process(media_name: str | None = None, limit: int | None = None):
         "success": success,
         "failed": failed,
         "total": total,
+        "success_by_media": success_by_media,
+        "failed_by_media": failed_by_media,
     }
