@@ -172,3 +172,118 @@ Enjoy exploring! ✨
 
 Follow @the_lost_aperture_ for more hidden gems ❤️"""
 ]
+
+REPLY_CONFIG_FILE = "reply_config.json"
+
+
+def _default_replyable_media():
+    return {
+        media_name: {
+            "media_id": media["media_id"],
+            "location": media["location"],
+        }
+        for media_name, media in MEDIA.items()
+    }
+
+
+def load_reply_config():
+    import json
+
+    if not os.path.exists(REPLY_CONFIG_FILE):
+        return {
+            "replyable_reels": {
+                media["media_id"]: {
+                    "media_name": media_name,
+                    "location": media["location"],
+                    "enabled": True,
+                }
+                for media_name, media in MEDIA.items()
+            }
+        }
+
+    with open(REPLY_CONFIG_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    if not isinstance(data, dict):
+        raise ValueError(f"{REPLY_CONFIG_FILE} must contain a JSON object")
+
+    data.setdefault("replyable_reels", {})
+    return data
+
+
+def save_reply_config(entries):
+    import json
+
+    replyable_reels = {}
+
+    for entry in entries:
+        media_id = str(entry.get("media_id") or "").strip()
+        media_name = str(entry.get("media_name") or "").strip()
+        location = str(entry.get("location") or "").strip()
+        enabled = bool(entry.get("enabled"))
+
+        if not media_id:
+            continue
+
+        if enabled and not location:
+            raise ValueError(
+                f"Location is required for replyable Reel media_id={media_id}"
+            )
+
+        if not media_name:
+            media_name = f"reel_{media_id}"
+
+        replyable_reels[media_id] = {
+            "media_name": media_name,
+            "location": location,
+            "enabled": enabled,
+        }
+
+    data = {"replyable_reels": replyable_reels}
+
+    temp_file = f"{REPLY_CONFIG_FILE}.tmp"
+
+    with open(temp_file, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
+        f.write("\n")
+
+    os.replace(temp_file, REPLY_CONFIG_FILE)
+
+
+def get_reply_config_map():
+    return load_reply_config().get("replyable_reels", {})
+
+
+def get_replyable_media():
+    replyable = {}
+
+    for media_id, entry in get_reply_config_map().items():
+        if not entry.get("enabled"):
+            continue
+
+        location = str(entry.get("location") or "").strip()
+        if not location:
+            continue
+
+        media_name = str(entry.get("media_name") or "").strip()
+        if not media_name:
+            media_name = f"reel_{media_id}"
+
+        replyable[media_name] = {
+            "media_id": media_id,
+            "location": location,
+        }
+
+    return replyable
+
+
+def get_media_config(media_name):
+    for configured_name, media in get_replyable_media().items():
+        if configured_name == media_name:
+            return media
+
+    # Keep old queued comments processable after a Reel is disabled in the UI.
+    if media_name in MEDIA:
+        return MEDIA[media_name]
+
+    raise KeyError(f"Unknown media: {media_name}")
