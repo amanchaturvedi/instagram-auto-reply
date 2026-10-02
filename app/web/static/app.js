@@ -665,7 +665,7 @@ function switchTab(tabName) {
     if (tabName === "insights") {
         loadDashboard();
     } else if (tabName === "comments") {
-        loadComments();
+        refreshComments();
         loadConfig();
     } else if (tabName === "config") {
         loadConfig();
