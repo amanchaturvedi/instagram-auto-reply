@@ -244,7 +244,7 @@ def get_pending_comments(media_name=None, limit=None):
     query = """
         SELECT *
         FROM queue
-        WHERE status IN ('PENDING', 'DM_SENT', 'FAILED')
+        WHERE status IN ('PENDING', 'DM_SENT')
     """
 
     params = []
