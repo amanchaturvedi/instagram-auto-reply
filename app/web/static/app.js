@@ -360,7 +360,18 @@ function renderComments(data) {
     });
 }
 
+function showCommentsLoader(message) {
+    commentsBody.innerHTML =
+        '<tr><td colspan="4" class="loading">' +
+            '<span class="loading-indicator">' +
+                '<span class="loader" aria-hidden="true"></span>' +
+                '<span>' + escapeHtml(message) + '</span>' +
+            '</span>' +
+        '</td></tr>';
+}
+
 async function loadComments() {
+    showCommentsLoader("Loading comments…");
     setStatus("Loading comments…");
 
     try {
@@ -392,6 +403,8 @@ function getCommentLimit(input) {
 
 async function refreshComments() {
     refreshCommentsBtn.disabled = true;
+    replyCommentsBtn.disabled = true;
+    showCommentsLoader("Refreshing pending comments…");
     setStatus("Refreshing comments…");
 
     try {
@@ -411,6 +424,8 @@ async function refreshComments() {
         commentsLoaded = true;
         setStatus("Comments refreshed");
     } catch (error) {
+        commentsBody.innerHTML =
+            '<tr><td colspan="4" class="empty">' + escapeHtml(error.message) + '</td></tr>';
         setStatus(error.message);
     } finally {
         refreshCommentsBtn.disabled = false;
