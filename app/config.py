@@ -173,9 +173,6 @@ Enjoy exploring! ✨
 Follow @the_lost_aperture_ for more hidden gems ❤️"""
 ]
 
-REPLY_CONFIG_FILE = "reply_config.json"
-
-
 def _default_replyable_media():
     return {
         media_name: {
@@ -187,34 +184,53 @@ def _default_replyable_media():
 
 
 def load_reply_config():
-    import json
+    from .database import (
+        get_reply_config_map,
+        is_reply_config_initialized,
+        replace_reply_config,
+        seed_reply_config,
+    )
 
-    if not os.path.exists(REPLY_CONFIG_FILE):
-        return {
-            "replyable_reels": {
-                media["media_id"]: {
-                    "media_name": media_name,
-                    "location": media["location"],
-                    "enabled": True,
-                }
-                for media_name, media in MEDIA.items()
-            }
-        }
+    if not is_reply_config_initialized():
+        legacy_path = "reply_config.json"
 
-    with open(REPLY_CONFIG_FILE, "r", encoding="utf-8") as f:
-        data = json.load(f)
+        if os.path.exists(legacy_path):
+            import json
 
-    if not isinstance(data, dict):
-        raise ValueError(f"{REPLY_CONFIG_FILE} must contain a JSON object")
+            with open(legacy_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
 
-    data.setdefault("replyable_reels", {})
-    return data
+            if not isinstance(data, dict):
+                raise ValueError(f"{legacy_path} must contain a JSON object")
+
+            legacy_entries = []
+
+            for media_id, entry in data.get("replyable_reels", {}).items():
+                legacy_entries.append(
+                    {
+                        "media_id": str(media_id),
+                        "media_name": str(
+                            entry.get("media_name") or f"reel_{media_id}"
+                        ),
+                        "location": str(entry.get("location") or ""),
+                        "enabled": bool(entry.get("enabled")),
+                    }
+                )
+
+            replace_reply_config(legacy_entries)
+
+        else:
+            seed_reply_config(MEDIA)
+
+    return {
+        "replyable_reels": get_reply_config_map()
+    }
 
 
 def save_reply_config(entries):
-    import json
+    from .database import replace_reply_config
 
-    replyable_reels = {}
+    normalized_entries = []
 
     for entry in entries:
         media_id = str(entry.get("media_id") or "").strip()
@@ -233,21 +249,16 @@ def save_reply_config(entries):
         if not media_name:
             media_name = f"reel_{media_id}"
 
-        replyable_reels[media_id] = {
-            "media_name": media_name,
-            "location": location,
-            "enabled": enabled,
-        }
+        normalized_entries.append(
+            {
+                "media_id": media_id,
+                "media_name": media_name,
+                "location": location,
+                "enabled": enabled,
+            }
+        )
 
-    data = {"replyable_reels": replyable_reels}
-
-    temp_file = f"{REPLY_CONFIG_FILE}.tmp"
-
-    with open(temp_file, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
-        f.write("\n")
-
-    os.replace(temp_file, REPLY_CONFIG_FILE)
+    replace_reply_config(normalized_entries)
 
 
 def get_reply_config_map():
@@ -278,9 +289,16 @@ def get_replyable_media():
 
 
 def get_media_config(media_name):
-    for configured_name, media in get_replyable_media().items():
-        if configured_name == media_name:
-            return media
+    for configured_name, media in get_reply_config_map().items():
+        configured_media_name = str(
+            media.get("media_name") or f"reel_{configured_name}"
+        )
+
+        if configured_media_name == media_name:
+            return {
+                "media_id": configured_name,
+                "location": str(media.get("location") or ""),
+            }
 
     # Keep old queued comments processable after a Reel is disabled in the UI.
     if media_name in MEDIA:
