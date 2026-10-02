@@ -122,9 +122,8 @@ def discover(media_name: str, fetch_count: int):
     }
 
     logger.info(
-        "Discovery completed media=%s total=%d pending=%d discovered=%d",
+        "Discovery completed media=%s pending=%d discovered=%d",
         media_name,
-        result["total_comments"],
         result["pending_comments"],
         result["discovered_comments"],
         extra={"highlight": "summary"},
