@@ -1,11 +1,11 @@
 from pathlib import Path
+from copy import deepcopy
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.comments import discover, discover_all, process
-from app.comments.stats import get_comment_stats, refresh_comment_stats
 from app.config import (
     IG_USER_ID,
     MY_USERNAME,
@@ -31,6 +31,8 @@ INDEX_FILE = BASE_DIR / "templates" / "index.html"
 
 COMMENT_REPLY_SCAN_LIMIT = 10_000
 
+_last_comment_discovery = None
+
 app = FastAPI(
     title="Instagram Automation",
     version="1.0.0",
@@ -43,6 +45,76 @@ app.mount(
     StaticFiles(directory=STATIC_DIR),
     name="static",
 )
+
+
+def _empty_comment_stats():
+    config_map = get_reply_config_map()
+
+    reels = {}
+
+    for media_id, entry in config_map.items():
+        if not entry.get("enabled"):
+            continue
+
+        media_name = entry.get("media_name") or f"reel_{media_id}"
+
+        reels[media_name] = {
+            "media_name": media_name,
+            "media_id": media_id,
+            "caption": None,
+            "timestamp": None,
+            "total_comments": 0,
+            "replied_comments": 0,
+            "pending_comments": 0,
+            "discovered_comments": 0,
+            "scanned_comments": 0,
+        }
+
+    return {
+        "status": "ok",
+        "last_updated": None,
+        "summary": {
+            "total_comments": 0,
+            "replied_comments": 0,
+            "pending_comments": 0,
+        },
+        "reels": reels,
+        "discovered_comments": 0,
+        "failed_reels": 0,
+    }
+
+
+def _adjust_stats_after_processing(stats, media_id, processing):
+    updated = deepcopy(stats)
+
+    success = int(processing.get("success", 0))
+
+    if not success:
+        return updated
+
+    for reel in updated.get("reels", {}).values():
+        if reel.get("media_id") != media_id:
+            continue
+
+        moved = min(
+            success,
+            int(reel.get("pending_comments", 0)),
+        )
+
+        reel["pending_comments"] -= moved
+        reel["replied_comments"] += moved
+        break
+
+    updated["summary"]["pending_comments"] = sum(
+        int(reel.get("pending_comments", 0))
+        for reel in updated.get("reels", {}).values()
+    )
+    updated["summary"]["replied_comments"] = sum(
+        int(reel.get("replied_comments", 0))
+        for reel in updated.get("reels", {}).values()
+    )
+
+    return updated
 
 
 def _config_reels():
@@ -186,13 +258,21 @@ def api_refresh_reel(media_id: str):
 
 @app.get("/api/comments")
 def api_comments():
-    return get_comment_stats()
+    return _last_comment_discovery or _empty_comment_stats()
 
 
 @app.post("/api/comments/refresh")
 def api_refresh_comments():
-    logger.info("Web comment stats refresh requested")
-    return refresh_comment_stats()
+    global _last_comment_discovery
+
+    logger.info(
+        "Web comment discovery requested; maps to discover_all scan_limit=%d",
+        COMMENT_REPLY_SCAN_LIMIT,
+    )
+
+    _last_comment_discovery = discover_all(COMMENT_REPLY_SCAN_LIMIT)
+
+    return _last_comment_discovery
 
 
 def _replyable_media_name(media_id):
@@ -220,17 +300,28 @@ def api_reply_comments_for_reel(media_id: str):
         )
 
     logger.info(
-        "Web Reel reply run requested media=%s media_id=%s scan_limit=%d",
+        "Web Reel process requested media=%s media_id=%s",
         media_name,
         media_id,
-        COMMENT_REPLY_SCAN_LIMIT,
         extra={"highlight": "start"},
     )
 
-    discover(media_name, COMMENT_REPLY_SCAN_LIMIT)
-    process(media_name)
+    result = process(media_name)
 
-    return refresh_comment_stats()
+    global _last_comment_discovery
+
+    if _last_comment_discovery is not None:
+        _last_comment_discovery = _adjust_stats_after_processing(
+            _last_comment_discovery,
+            media_id,
+            result,
+        )
+
+    return {
+        "status": "ok",
+        "processing": result,
+        "comments": _last_comment_discovery or _empty_comment_stats(),
+    }
 
 
 @app.post("/api/comments/reply")
@@ -242,15 +333,31 @@ def api_reply_comments():
         )
 
     logger.info(
-        "Web Reply All run requested scan_limit=%d",
-        COMMENT_REPLY_SCAN_LIMIT,
+        "Web Reply All process requested",
         extra={"highlight": "start"},
     )
 
-    discover_all(COMMENT_REPLY_SCAN_LIMIT)
-    process()
+    result = process()
 
-    return refresh_comment_stats()
+    global _last_comment_discovery
+
+    if _last_comment_discovery is not None:
+        for media_id, reel in list(
+            (item.get("media_id"), item)
+            for item in _last_comment_discovery.get("reels", {}).values()
+        ):
+            if not media_id:
+                continue
+
+            # Process() does not expose per-media success counts, so totals
+            # remain as the last discovery snapshot until the next Refresh.
+            continue
+
+    return {
+        "status": "ok",
+        "processing": result,
+        "comments": _last_comment_discovery or _empty_comment_stats(),
+    }
 
 
 @app.get("/api/reels/{media_id}")
