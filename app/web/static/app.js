@@ -63,6 +63,24 @@ function formatTime(value) {
     return formatted.replace(/am/i, "AM").replace(/pm/i, "PM");
 }
 
+function formatPosted(value) {
+    if (!value) return "—";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) return value;
+
+    const formatted = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        weekday: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+    }).format(date);
+
+    return formatted.replace(/am/i, "AM").replace(/pm/i, "PM");
+}
+
 function shortText(value, limit) {
     const text = String(value || "").replace(/\s+/g, " ").trim();
 
@@ -121,7 +139,7 @@ function renderReels(reels) {
             '<td class="reel-cell">' +
                 '<div class="reel-title">' + escapeHtml(shortText(reel.caption || reel.media_id, 90)) + '</div>' +
             '</td>' +
-            '<td>' + formatTime(reel.timestamp) + '</td>' +
+            '<td>' + formatPosted(reel.timestamp) + '</td>' +
             '<td>' + formatNumber(metrics.views) + '</td>' +
             '<td>' + formatNumber(metrics.reach) + '</td>' +
             '<td>' + formatNumber(metrics.likes) + '</td>' +
