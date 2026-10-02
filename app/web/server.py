@@ -2,7 +2,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.comments.service import get_comments
+from app.comments import discover_all, process
+from app.comments.service import should_reply
+from app.comments.stats import get_comment_stats, refresh_comment_stats
+from app.config import IG_USER_ID, MEDIA, MY_USERNAME, REPLY_MESSAGE
 from app.insights.catalog import refresh_reel_catalog
 from app.insights.collector import collect_reel_insights
 from app.logger import logger
@@ -19,6 +22,8 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 INDEX_FILE = BASE_DIR / "templates" / "index.html"
+
+COMMENT_REPLY_SCAN_LIMIT = 10_000
 
 app = FastAPI(
     title="Instagram Automation",
@@ -42,6 +47,29 @@ def dashboard():
 @app.get("/api/health")
 def api_health():
     return health_check()
+
+
+@app.get("/api/config")
+def api_config():
+    return {
+        "instagram_user_id": IG_USER_ID,
+        "username": MY_USERNAME,
+        "timezone": "Asia/Kolkata",
+        "monitored_media": len(MEDIA),
+        "reply_message": REPLY_MESSAGE,
+        "reply_enabled": bool(REPLY_MESSAGE.strip()),
+        "reply_keywords": [
+            "location",
+            "loc",
+            "link",
+            "map",
+            "maps",
+            "which place",
+            "where",
+            "details",
+            "📍",
+        ],
+    }
 
 
 @app.get("/api/dashboard")
@@ -70,31 +98,6 @@ def api_reel(media_id: str):
     return reel
 
 
-@app.get("/api/reels/{media_id}/comments")
-def api_reel_comments(media_id: str, limit: int = 20):
-    if limit < 1 or limit > 100:
-        raise HTTPException(
-            status_code=400,
-            detail="limit must be between 1 and 100",
-        )
-
-    comments = []
-
-    for comment in get_comments(media_id, limit):
-        comments.append(
-            {
-                "id": comment.get("id"),
-                "username": comment.get("from", {}).get("username"),
-                "text": comment.get("text"),
-                "timestamp": comment.get("timestamp"),
-                "parent_id": comment.get("parent_id"),
-                "hidden": comment.get("hidden", False),
-            }
-        )
-
-    return {"comments": comments}
-
-
 @app.post("/api/reels/{media_id}/refresh")
 def api_refresh_reel(media_id: str):
     logger.info(
@@ -109,3 +112,59 @@ def api_refresh_reel(media_id: str):
         "media_id": media_id,
         "last_updated": data.get("last_updated"),
     }
+
+
+@app.get("/api/comments")
+def api_comments():
+    return get_comment_stats()
+
+
+@app.post("/api/comments/refresh")
+def api_refresh_comments():
+    logger.info("Web comment stats refresh requested")
+    return refresh_comment_stats()
+
+
+@app.post("/api/comments/reply")
+def api_reply_comments():
+    if not REPLY_MESSAGE.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Set REPLY_MESSAGE in app/config.py before replying.",
+        )
+
+    logger.info(
+        "Web comment reply run requested scan_limit=%d",
+        COMMENT_REPLY_SCAN_LIMIT,
+        extra={"highlight": "start"},
+    )
+
+    discover_all(COMMENT_REPLY_SCAN_LIMIT)
+    process()
+
+    return refresh_comment_stats()
+
+
+@app.get("/api/reels/{media_id}/comments")
+def api_reel_comments(media_id: str, limit: int = 20):
+    if limit < 1 or limit > 100:
+        raise HTTPException(
+            status_code=400,
+            detail="limit must be between 1 and 100",
+        )
+
+    comments = []
+
+    for comment in __import__("app.comments.service", fromlist=["get_comments"]).get_comments(media_id, limit):
+        comments.append(
+            {
+                "id": comment.get("id"),
+                "username": comment.get("from", {}).get("username"),
+                "text": comment.get("text"),
+                "timestamp": comment.get("timestamp"),
+                "parent_id": comment.get("parent_id"),
+                "hidden": comment.get("hidden", False),
+            }
+        )
+
+    return {"comments": comments}
