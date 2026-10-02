@@ -13,6 +13,9 @@ const commentsLastUpdatedEl = document.getElementById("comments-last-updated");
 const refreshCommentsBtn = document.getElementById("refresh-comments-btn");
 const replyCommentsBtn = document.getElementById("reply-comments-btn");
 const replyHint = document.getElementById("reply-hint");
+const saveConfigBtn = document.getElementById("save-config-btn");
+const configReelsBody = document.getElementById("config-reels-body");
+const configReelsCount = document.getElementById("config-reels-count");
 
 const configUsernameEl = document.getElementById("config-username");
 const configUserIdEl = document.getElementById("config-user-id");
@@ -209,6 +212,7 @@ async function refreshReels() {
         const result = await response.json();
 
         await loadDashboard();
+        await loadConfig();
 
         setStatus(
             result.added + " new Reel" + (result.added === 1 ? "" : "s") + " found"
@@ -331,11 +335,13 @@ function renderComments(data) {
 
     if (!reels.length) {
         commentsBody.innerHTML =
-            '<tr><td colspan="5" class="empty">No comment stats yet. Click Refresh.</td></tr>';
+            '<tr><td colspan="5" class="empty">No replyable Reels configured. Enable Reels in Config.</td></tr>';
         return;
     }
 
     commentsBody.innerHTML = reels.map(function(reel) {
+        const canReply = Boolean(window.dashboardReplyEnabled) && Number(reel.pending_comments || 0) > 0;
+
         return '<tr>' +
             '<td class="reel-cell">' +
                 '<div class="reel-title">' + escapeHtml(reel.media_name) + '</div>' +
@@ -343,9 +349,19 @@ function renderComments(data) {
             '<td>' + formatNumber(reel.total_comments) + '</td>' +
             '<td>' + formatNumber(reel.replied_comments) + '</td>' +
             '<td>' + formatNumber(reel.pending_comments) + '</td>' +
-            '<td>' + formatNumber(reel.eligible_comments) + '</td>' +
+            '<td class="actions-cell">' +
+                '<button class="table-button reply-one" data-media-id="' + escapeHtml(reel.media_id) + '" ' +
+                    (canReply ? '' : 'disabled title="No pending comments or reply message is not configured"') +
+                    '>Reply</button>' +
+            '</td>' +
         '</tr>';
     }).join("");
+
+    commentsBody.querySelectorAll(".reply-one").forEach(function(button) {
+        button.addEventListener("click", function() {
+            replyPendingCommentsForReel(button.dataset.mediaId, button);
+        });
+    });
 }
 
 async function loadComments() {
@@ -390,6 +406,45 @@ async function refreshComments() {
     }
 }
 
+async function replyPendingCommentsForReel(mediaId, button) {
+    if (button.disabled) return;
+
+    const confirmed = window.confirm(
+        "This will process pending eligible comments for this Reel, sending DMs and public replies. Continue?"
+    );
+
+    if (!confirmed) return;
+
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = "…";
+    refreshCommentsBtn.disabled = true;
+    replyCommentsBtn.disabled = true;
+    setStatus("Processing Reel comments…");
+
+    try {
+        const response = await fetch(
+            "/api/comments/reply/" + encodeURIComponent(mediaId),
+            { method: "POST" }
+        );
+
+        if (!response.ok) {
+            const body = await response.text();
+            throw new Error(body || "Could not process Reel comments");
+        }
+
+        const data = await response.json();
+        renderComments(data);
+        commentsLoaded = true;
+        setStatus("Reel reply run completed");
+    } catch (error) {
+        setStatus(error.message);
+    } finally {
+        refreshCommentsBtn.disabled = false;
+        await loadConfig();
+    }
+}
+
 async function replyPendingComments() {
     if (replyCommentsBtn.disabled) return;
 
@@ -420,10 +475,15 @@ async function replyPendingComments() {
     } finally {
         refreshCommentsBtn.disabled = false;
         await loadConfig();
+        if (commentsLoaded) {
+            await loadComments();
+        }
     }
 }
 
 function renderConfig(data) {
+    window.dashboardReplyEnabled = Boolean(data.reply_enabled);
+
     configUsernameEl.textContent = "@" + (data.username || "—");
     configUserIdEl.textContent = data.instagram_user_id || "—";
 
@@ -443,6 +503,8 @@ function renderConfig(data) {
         return '<span class="tag">' + escapeHtml(keyword) + '</span>';
     }).join("");
 
+    renderConfigReels(data.reels || []);
+
     replyCommentsBtn.disabled = !enabled;
     if (enabled) {
         replyHint.classList.add("hidden");
@@ -453,6 +515,84 @@ function renderConfig(data) {
     }
 
     configLoaded = true;
+}
+
+function renderConfigReels(reels) {
+    if (!reels.length) {
+        configReelsBody.innerHTML =
+            '<tr><td colspan="4" class="empty">No tracked Reels yet. Open Insights and click Refresh reels.</td></tr>';
+        configReelsCount.textContent = "0 selected";
+        return;
+    }
+
+    configReelsBody.innerHTML = reels.map(function(reel) {
+        const mediaId = escapeHtml(reel.media_id);
+        const mediaName = escapeHtml(reel.media_name || ("reel_" + reel.media_id));
+        const caption = escapeHtml(shortText(reel.caption || reel.media_id, 90));
+        const checked = reel.enabled ? "checked" : "";
+
+        return '<tr class="config-reel-row" data-media-id="' + mediaId + '" data-media-name="' + mediaName + '">' +
+            '<td class="check-cell">' +
+                '<input type="checkbox" class="config-reel-enabled" ' + checked + ' aria-label="Enable replies for Reel">' +
+            '</td>' +
+            '<td class="reel-cell">' +
+                '<div class="reel-title">' + caption + '</div>' +
+            '</td>' +
+            '<td>' + formatPosted(reel.timestamp) + '</td>' +
+            '<td class="location-cell">' +
+                '<input class="location-input" type="text" value="' + escapeHtml(reel.location || "") + '" placeholder="Enter location">' +
+            '</td>' +
+        '</tr>';
+    }).join("");
+
+    function updateSelectedCount() {
+        const selected = configReelsBody.querySelectorAll(".config-reel-enabled:checked").length;
+        configReelsCount.textContent = selected + " selected";
+    }
+
+    configReelsBody.querySelectorAll(".config-reel-enabled").forEach(function(input) {
+        input.addEventListener("change", updateSelectedCount);
+    });
+
+    updateSelectedCount();
+}
+
+async function saveConfig() {
+    saveConfigBtn.disabled = true;
+    setStatus("Saving config…");
+
+    try {
+        const reels = Array.from(configReelsBody.querySelectorAll(".config-reel-row")).map(function(row) {
+            return {
+                media_id: row.dataset.mediaId,
+                media_name: row.dataset.mediaName,
+                enabled: row.querySelector(".config-reel-enabled").checked,
+                location: row.querySelector(".location-input").value.trim(),
+            };
+        });
+
+        const response = await fetch("/api/config", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ reels: reels }),
+        });
+
+        if (!response.ok) {
+            const body = await response.text();
+            throw new Error(body || "Could not save config");
+        }
+
+        const data = await response.json();
+        renderConfig(data);
+        commentsLoaded = false;
+        setStatus("Config saved");
+    } catch (error) {
+        setStatus(error.message);
+    } finally {
+        saveConfigBtn.disabled = false;
+    }
 }
 
 async function loadConfig() {
@@ -507,6 +647,7 @@ tabButtons.forEach(function(button) {
 
 refreshReelsBtn.addEventListener("click", refreshReels);
 refreshCommentsBtn.addEventListener("click", refreshComments);
+saveConfigBtn.addEventListener("click", saveConfig);
 replyCommentsBtn.addEventListener("click", replyPendingComments);
 
 closeReelModal.addEventListener("click", function() {
