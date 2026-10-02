@@ -445,9 +445,15 @@ async function replyPendingCommentsForReel(mediaId, button) {
         }
 
         const data = await response.json();
-        renderComments(data);
+        renderComments(data.comments || {});
         commentsLoaded = true;
-        setStatus("Reel reply run completed");
+        setStatus(
+            "Reel processed: " +
+            formatNumber((data.processing || {}).success) +
+            " succeeded, " +
+            formatNumber((data.processing || {}).failed) +
+            " failed"
+        );
     } catch (error) {
         setStatus(error.message);
     } finally {
@@ -478,17 +484,20 @@ async function replyPendingComments() {
         }
 
         const data = await response.json();
-        renderComments(data);
+        renderComments(data.comments || {});
         commentsLoaded = true;
-        setStatus("Reply run completed");
+        setStatus(
+            "Reply All completed: " +
+            formatNumber((data.processing || {}).success) +
+            " succeeded, " +
+            formatNumber((data.processing || {}).failed) +
+            " failed"
+        );
     } catch (error) {
         setStatus(error.message);
     } finally {
         refreshCommentsBtn.disabled = false;
         await loadConfig();
-        if (commentsLoaded) {
-            await loadComments();
-        }
     }
 }
 
