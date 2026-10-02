@@ -53,6 +53,11 @@ instagram-auto-reply/
 │   ├── database.py
 │   ├── instagram.py
 │   ├── logger.py
+│   ├── analytics/
+│   │   ├── metrics.py
+│   │   ├── baseline.py
+│   │   ├── posting_time.py
+│   │   └── analyzer.py
 │   ├── comments/
 │   │   ├── service.py
 │   │   ├── discovery.py
@@ -296,6 +301,9 @@ docs    = /docs
 | POST | /api/reels/refresh | Refresh Reel catalog |
 | GET | /api/reels/{media_id} | Read one Reel + snapshots |
 | POST | /api/reels/{media_id}/refresh | Collect one Reel's Insights |
+| GET | /api/analytics | Build full deterministic AI-analysis context |
+| GET | /api/analytics/posting-time | Build age-normalized posting-time analysis |
+| GET | /api/analytics/reels/{media_id} | Build one-Reel deterministic analysis context |
 | GET | /api/comments | Read comment state from SQLite |
 | POST | /api/comments/refresh | Discover comments for all replyable Reels |
 | POST | /api/comments/refresh/{media_id} | Discover comments for one replyable Reel |
@@ -441,6 +449,43 @@ Example:
   "last_updated": "..."
 }
 ~~~
+
+## GET /api/analytics
+
+Reads insights.json and builds the deterministic analysis context used by the future AI layer.
+
+It contains account baselines, per-Reel metrics, posting-time features, and age-normalized 24-hour performance.
+
+## GET /api/analytics/posting-time
+
+Returns posting-time analysis grouped by:
+
+- hour
+- weekday
+- 1-hour slot
+- 30-minute slot
+
+Performance is normalized around a 24-hour Reel age using the nearest Insight snapshot within an 8-hour tolerance.
+
+Each aggregate contains:
+
+- count
+- median
+- p25
+- p75
+
+This avoids comparing a newly posted Reel directly with a much older Reel using raw totals.
+
+## GET /api/analytics/reels/{media_id}
+
+Returns deterministic analysis context for one Reel, including:
+
+- posting features
+- latest metrics
+- derived engagement rates
+- nearest 24-hour Insight snapshot
+
+Unknown media IDs return HTTP 404.
 
 ## GET /api/comments
 
