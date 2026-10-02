@@ -173,17 +173,24 @@ Enjoy exploring! ✨
 Follow @the_lost_aperture_ for more hidden gems ❤️"""
 ]
 
-def load_reply_config():
-    from .database import get_reply_config_map, seed_reply_config
+def get_reply_config_map():
+    from .database import (
+        get_reply_config_map as read_reply_config_map,
+        seed_reply_config,
+    )
 
-    config = get_reply_config_map()
+    config = read_reply_config_map()
 
     if not config:
         seed_reply_config(MEDIA)
-        config = get_reply_config_map()
+        config = read_reply_config_map()
 
+    return config
+
+
+def load_reply_config():
     return {
-        "replyable_reels": config
+        "replyable_reels": get_reply_config_map()
     }
 
 
@@ -221,10 +228,6 @@ def save_reply_config(entries):
     replace_reply_config(normalized_entries)
 
 
-def get_reply_config_map():
-    return load_reply_config().get("replyable_reels", {})
-
-
 def get_replyable_media():
     replyable = {}
 
@@ -260,7 +263,6 @@ def get_media_config(media_name):
                 "location": str(media.get("location") or ""),
             }
 
-    # Keep old queued comments processable after a Reel is disabled in the UI.
     if media_name in MEDIA:
         return MEDIA[media_name]
 
