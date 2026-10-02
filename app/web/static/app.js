@@ -13,6 +13,7 @@ const commentsLastUpdatedEl = document.getElementById("comments-last-updated");
 const refreshCommentsBtn = document.getElementById("refresh-comments-btn");
 const replyCommentsBtn = document.getElementById("reply-comments-btn");
 const replyHint = document.getElementById("reply-hint");
+const commentLimitInput = document.getElementById("comment-limit-input");
 const saveConfigBtn = document.getElementById("save-config-btn");
 const configReelsBody = document.getElementById("config-reels-body");
 const configReelsCount = document.getElementById("config-reels-count");
@@ -356,12 +357,19 @@ function renderComments(data) {
             '<td>' + formatNumber(reel.replied_comments) + '</td>' +
             '<td>' + formatNumber(reel.pending_comments) + '</td>' +
             '<td class="actions-cell">' +
+                '<button class="table-button refresh-comments-one" data-media-id="' + escapeHtml(reel.media_id) + '">Refresh</button>' +
                 '<button class="table-button reply-one" data-media-id="' + escapeHtml(reel.media_id) + '" ' +
                     (canReply ? '' : 'disabled title="No pending comments or reply message is not configured"') +
                     '>Reply</button>' +
             '</td>' +
         '</tr>';
     }).join("");
+
+    commentsBody.querySelectorAll(".refresh-comments-one").forEach(function(button) {
+        button.addEventListener("click", function() {
+            refreshCommentsForReel(button.dataset.mediaId, button);
+        });
+    });
 
     commentsBody.querySelectorAll(".reply-one").forEach(function(button) {
         button.addEventListener("click", function() {
@@ -389,12 +397,26 @@ async function loadComments() {
     }
 }
 
+function getCommentLimit() {
+    const value = Number(commentLimitInput.value);
+
+    if (!Number.isInteger(value) || value < 1 || value > 500) {
+        throw new Error("Limit must be between 1 and 500");
+    }
+
+    return value;
+}
+
 async function refreshComments() {
     refreshCommentsBtn.disabled = true;
     setStatus("Refreshing comments…");
 
     try {
-        const response = await fetch("/api/comments/refresh", { method: "POST" });
+        const limit = getCommentLimit();
+        const response = await fetch(
+            "/api/comments/refresh?limit=" + encodeURIComponent(limit),
+            { method: "POST" }
+        );
 
         if (!response.ok) {
             const body = await response.text();
@@ -409,6 +431,48 @@ async function refreshComments() {
         setStatus(error.message);
     } finally {
         refreshCommentsBtn.disabled = false;
+    }
+}
+
+async function refreshCommentsForReel(mediaId, button) {
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = "…";
+    refreshCommentsBtn.disabled = true;
+    setStatus("Refreshing Reel comments…");
+
+    try {
+        const limit = getCommentLimit();
+        const response = await fetch(
+            "/api/comments/refresh/" + encodeURIComponent(mediaId) + "?limit=" + encodeURIComponent(limit),
+            { method: "POST" }
+        );
+
+        if (!response.ok) {
+            const body = await response.text();
+            throw new Error(body || "Could not refresh Reel comments");
+        }
+
+        const data = await response.json();
+        renderComments(data);
+        commentsLoaded = true;
+
+        const reel = data.reels && Object.values(data.reels).find(function(item) {
+            return item.media_id === mediaId;
+        });
+
+        setStatus(
+            reel
+                ? "Reel refreshed: " + formatNumber(reel.discovered_comments) + " eligible comment" +
+                    (Number(reel.discovered_comments) === 1 ? "" : "s") + " discovered"
+                : "Reel refreshed"
+        );
+    } catch (error) {
+        setStatus(error.message);
+    } finally {
+        refreshCommentsBtn.disabled = false;
+        button.disabled = false;
+        button.textContent = original;
     }
 }
 
