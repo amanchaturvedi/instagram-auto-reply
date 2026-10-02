@@ -54,6 +54,7 @@ def _format_reel(reel, include_snapshots=False):
         "media_type": reel.get("media_type"),
         "media_product_type": reel.get("media_product_type"),
         "timestamp": reel.get("timestamp"),
+        "comments_count": reel.get("comments_count"),
         "last_collected_at": snapshot.get("collected_at"),
         "metrics": {
             **metrics,
