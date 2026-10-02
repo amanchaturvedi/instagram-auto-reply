@@ -1,3 +1,6 @@
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from app.comments.service import get_comments, should_reply
 from app.config import MY_USERNAME, REPLY_MESSAGE, REPLY_MESSAGES, get_replyable_media
 from app.database import enqueue
@@ -168,8 +171,8 @@ def discover_all(fetch_count: int):
 
     response = {
         "status": "ok",
-        "last_updated": __import__("datetime").datetime.now(
-            __import__("zoneinfo").ZoneInfo("Asia/Kolkata")
+        "last_updated": datetime.now(
+            ZoneInfo("Asia/Kolkata")
         ).isoformat(timespec="seconds"),
         "summary": summary,
         "reels": {r["media_name"]: r for r in results},
