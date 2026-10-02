@@ -336,9 +336,7 @@ function renderComments(data) {
             ? "Last refreshed " + formatTime(data.last_updated)
             : "Not refreshed yet";
     
-    replyCommentsBtn.disabled =
-        !Boolean(window.dashboardReplyEnabled) ||
-        Number(summary.pending_comments || 0) === 0;
+    replyCommentsBtn.disabled = !Boolean(window.dashboardReplyEnabled);
 
     const reels = Object.values(data.reels || {}).sort(function(a, b) {
         return String(a.media_name).localeCompare(String(b.media_name));
