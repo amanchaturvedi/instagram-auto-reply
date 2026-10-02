@@ -6,8 +6,8 @@ from app.config import REPLY_MESSAGE
 from app.database import (
     get_pending_comments,
     mark_dm_sent,
-    mark_done,
     mark_failed,
+    remove_processed,
 )
 from app.logger import logger
 
@@ -114,7 +114,7 @@ def process(media_name: str | None = None, limit: int | None = None):
 
         try:
             reply_comment(comment_id)
-            mark_done(comment_id)
+            remove_processed(comment_id)
             success += 1
             success_by_media[queued_media] = (
                 success_by_media.get(queued_media, 0) + 1
