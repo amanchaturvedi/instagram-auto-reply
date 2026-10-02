@@ -8,7 +8,6 @@ const reelsBody = document.getElementById("reels-body");
 const refreshReelsBtn = document.getElementById("refresh-reels-btn");
 
 const commentsBody = document.getElementById("comments-body");
-const commentsLastUpdatedEl = document.getElementById("comments-last-updated");
 const refreshCommentsBtn = document.getElementById("refresh-comments-btn");
 const replyCommentsBtn = document.getElementById("reply-comments-btn");
 const replyHint = document.getElementById("reply-hint");
@@ -312,11 +311,6 @@ async function openReel(mediaId) {
 }
 
 function renderComments(data) {
-    commentsLastUpdatedEl.textContent =
-        data.last_updated
-            ? "Last refreshed " + formatTime(data.last_updated)
-            : "Not refreshed yet";
-
     replyCommentsBtn.disabled = !Boolean(window.dashboardReplyEnabled);
 
     const reels = Object.values(data.reels || {}).sort(function(a, b) {
