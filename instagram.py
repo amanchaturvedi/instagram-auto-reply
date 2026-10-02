@@ -180,7 +180,7 @@ def get_media():
     url = f"{BASE_URL}/{IG_USER_ID}/media"
 
     params = {
-        "fields": "id,caption,comments_count",
+        "fields": "id,caption,comments_count,media_type,media_product_type,timestamp",
         "access_token": ACCESS_TOKEN,
     }
 
