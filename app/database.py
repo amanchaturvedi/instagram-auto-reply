@@ -50,15 +50,23 @@ def _get_db():
                 enabled INTEGER NOT NULL DEFAULT 0,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
-
-            CREATE TABLE IF NOT EXISTS app_state(
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL
-            );
-
-            DELETE FROM queue
-            WHERE status = 'DONE';
         """)
+
+        schema_version = connection.execute(
+            "PRAGMA user_version"
+        ).fetchone()[0]
+
+        if schema_version < 2:
+            connection.executescript("""
+                DROP TABLE IF EXISTS comment_media_stats;
+                DROP TABLE IF EXISTS app_state;
+
+                DELETE FROM queue
+                WHERE status = 'DONE';
+            """)
+
+            connection.execute("PRAGMA user_version = 2")
+
         connection.commit()
 
         _thread_state.connection = connection
@@ -71,33 +79,25 @@ def _get_db():
 # Reply configuration
 # ----------------------------
 
-def is_reply_config_initialized():
+def get_reply_config_map():
     connection, cursor = _get_db()
 
     cursor.execute(
         """
-        SELECT value
-        FROM app_state
-        WHERE key='reply_config_initialized'
+        SELECT media_id, media_name, location, enabled
+        FROM reply_config
+        ORDER BY media_name
         """
     )
 
-    row = cursor.fetchone()
-    return bool(row and row["value"] == "1")
-
-
-def mark_reply_config_initialized():
-    connection, cursor = _get_db()
-
-    cursor.execute(
-        """
-        INSERT INTO app_state(key, value)
-        VALUES('reply_config_initialized', '1')
-        ON CONFLICT(key) DO UPDATE SET value='1'
-        """
-    )
-
-    connection.commit()
+    return {
+        row["media_id"]: {
+            "media_name": row["media_name"],
+            "location": row["location"],
+            "enabled": bool(row["enabled"]),
+        }
+        for row in cursor.fetchall()
+    }
 
 
 def seed_reply_config(defaults):
@@ -127,7 +127,7 @@ def seed_reply_config(defaults):
             rows,
         )
 
-    mark_reply_config_initialized()
+    connection.commit()
 
     logger.info(
         "Seeded reply configuration defaults rows=%d",
@@ -166,14 +166,6 @@ def replace_reply_config(entries):
                 rows,
             )
 
-        cursor.execute(
-            """
-            INSERT INTO app_state(key, value)
-            VALUES('reply_config_initialized', '1')
-            ON CONFLICT(key) DO UPDATE SET value='1'
-            """
-        )
-
         connection.commit()
     except Exception:
         connection.rollback()
@@ -184,28 +176,6 @@ def replace_reply_config(entries):
         len(rows),
         extra={"highlight": "summary"},
     )
-
-
-def get_reply_config_map():
-    connection, cursor = _get_db()
-
-    cursor.execute(
-        """
-        SELECT media_id, media_name, location, enabled
-        FROM reply_config
-        ORDER BY media_name
-        """
-    )
-
-    return {
-        row["media_id"]: {
-            "media_name": row["media_name"],
-            "location": row["location"],
-            "enabled": bool(row["enabled"]),
-        }
-        for row in cursor.fetchall()
-    }
-
 
 # ----------------------------
 # Pending comment queue
