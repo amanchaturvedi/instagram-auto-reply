@@ -14,7 +14,7 @@ def refresh_reel_catalog():
     updated = 0
     skipped = 0
 
-    for media in get_media():
+    for media in get_media(stop_ids=existing_ids):
         if media.get("media_product_type") != "REELS":
             skipped += 1
             continue
