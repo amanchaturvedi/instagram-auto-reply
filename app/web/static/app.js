@@ -571,9 +571,12 @@ function renderConfigReels(reels) {
         const caption = escapeHtml(shortText(reel.caption || reel.media_id, 90));
         const checked = reel.enabled ? "checked" : "";
 
-        return '<tr class="config-reel-row" data-media-id="' + mediaId + '" data-media-name="' + mediaName + '">' +
+        return '<tr class="config-reel-row" data-media-id="' + mediaId + '">' +
             '<td class="check-cell">' +
                 '<input type="checkbox" class="config-reel-enabled" ' + checked + ' aria-label="Enable replies for Reel">' +
+            '</td>' +
+            '<td class="name-cell">' +
+                '<input class="reel-name-input" type="text" value="' + mediaName + '" placeholder="Reel name">' +
             '</td>' +
             '<td class="reel-cell">' +
                 '<div class="reel-title">' + caption + '</div>' +
@@ -605,7 +608,7 @@ async function saveConfig() {
         const reels = Array.from(configReelsBody.querySelectorAll(".config-reel-row")).map(function(row) {
             return {
                 media_id: row.dataset.mediaId,
-                media_name: row.dataset.mediaName,
+                media_name: row.querySelector(".reel-name-input").value.trim(),
                 enabled: row.querySelector(".config-reel-enabled").checked,
                 location: row.querySelector(".location-input").value.trim(),
             };
