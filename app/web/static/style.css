@@ -237,7 +237,7 @@ table {
 }
 
 .comments-table {
-    min-width: 680px;
+    min-width: 800px;
 }
 
 th,
@@ -283,6 +283,26 @@ tbody tr[data-media-id]:hover {
 
 .actions-cell {
     text-align: left;
+}
+
+.comment-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.row-limit-control {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #6b7280;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.row-limit-control .limit-input {
+    width: 58px;
+    padding: 6px 7px;
 }
 
 .table-button {
