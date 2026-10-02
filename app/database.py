@@ -28,7 +28,7 @@ def _get_db():
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA busy_timeout = 30000")
 
-        connection.execute("""
+        connection.executescript("""
             CREATE TABLE IF NOT EXISTS queue(
                 comment_id TEXT PRIMARY KEY,
                 username TEXT,
@@ -39,7 +39,34 @@ def _get_db():
                 status TEXT DEFAULT 'PENDING',
                 retries INTEGER DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_queue_media_status
+            ON queue(media_id, status);
+
+            CREATE TABLE IF NOT EXISTS comment_media_stats(
+                media_id TEXT PRIMARY KEY,
+                media_name TEXT NOT NULL,
+                caption TEXT,
+                timestamp TEXT,
+                total_comments INTEGER NOT NULL DEFAULT 0,
+                discovered_comments INTEGER NOT NULL DEFAULT 0,
+                scanned_comments INTEGER NOT NULL DEFAULT 0,
+                last_updated TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS reply_config(
+                media_id TEXT PRIMARY KEY,
+                media_name TEXT NOT NULL,
+                location TEXT NOT NULL DEFAULT '',
+                enabled INTEGER NOT NULL DEFAULT 0,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS app_state(
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
         """)
         connection.commit()
 
@@ -47,6 +74,304 @@ def _get_db():
         _thread_state.cursor = connection.cursor()
 
     return _thread_state.connection, _thread_state.cursor
+
+
+# ----------------------------
+# Reply configuration
+# ----------------------------
+
+def is_reply_config_initialized():
+    connection, cursor = _get_db()
+
+    cursor.execute(
+        """
+        SELECT value
+        FROM app_state
+        WHERE key='reply_config_initialized'
+        """
+    )
+
+    row = cursor.fetchone()
+    return bool(row and row["value"] == "1")
+
+
+def mark_reply_config_initialized():
+    connection, cursor = _get_db()
+
+    cursor.execute(
+        """
+        INSERT INTO app_state(key, value)
+        VALUES('reply_config_initialized', '1')
+        ON CONFLICT(key) DO UPDATE SET value='1'
+        """
+    )
+
+    connection.commit()
+
+
+def seed_reply_config(defaults):
+    connection, cursor = _get_db()
+
+    rows = [
+        (
+            media["media_id"],
+            media_name,
+            media["location"],
+            1,
+        )
+        for media_name, media in defaults.items()
+    ]
+
+    if rows:
+        cursor.executemany(
+            """
+            INSERT OR IGNORE INTO reply_config(
+                media_id,
+                media_name,
+                location,
+                enabled
+            )
+            VALUES(?,?,?,?)
+            """,
+            rows,
+        )
+
+    mark_reply_config_initialized()
+
+    logger.info(
+        "Seeded reply configuration defaults rows_inserted=%d",
+        cursor.rowcount if rows else 0,
+    )
+
+
+def replace_reply_config(entries):
+    connection, cursor = _get_db()
+
+    rows = []
+    for entry in entries:
+        rows.append(
+            (
+                str(entry["media_id"]),
+                str(entry["media_name"]),
+                str(entry.get("location") or ""),
+                1 if entry.get("enabled") else 0,
+            )
+        )
+
+    try:
+        cursor.execute("BEGIN")
+
+        cursor.execute("DELETE FROM reply_config")
+
+        if rows:
+            cursor.executemany(
+                """
+                INSERT INTO reply_config(
+                    media_id,
+                    media_name,
+                    location,
+                    enabled
+                )
+                VALUES(?,?,?,?)
+                """,
+                rows,
+            )
+
+        cursor.execute(
+            """
+            INSERT INTO app_state(key, value)
+            VALUES('reply_config_initialized', '1')
+            ON CONFLICT(key) DO UPDATE SET value='1'
+            """
+        )
+
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+
+    logger.info(
+        "Replaced reply configuration rows=%d",
+        len(rows),
+        extra={"highlight": "summary"},
+    )
+
+
+def get_reply_config_map():
+    connection, cursor = _get_db()
+
+    cursor.execute(
+        """
+        SELECT media_id, media_name, location, enabled
+        FROM reply_config
+        ORDER BY media_name
+        """
+    )
+
+    return {
+        row["media_id"]: {
+            "media_name": row["media_name"],
+            "location": row["location"],
+            "enabled": bool(row["enabled"]),
+        }
+        for row in cursor.fetchall()
+    }
+
+
+# ----------------------------
+# Comment stats
+# ----------------------------
+
+def upsert_comment_media_stats(
+    media_name,
+    media_id,
+    caption,
+    timestamp,
+    total_comments,
+    discovered_comments,
+    scanned_comments,
+    last_updated,
+):
+    connection, cursor = _get_db()
+
+    cursor.execute(
+        """
+        INSERT INTO comment_media_stats(
+            media_id,
+            media_name,
+            caption,
+            timestamp,
+            total_comments,
+            discovered_comments,
+            scanned_comments,
+            last_updated
+        )
+        VALUES(?,?,?,?,?,?,?,?)
+        ON CONFLICT(media_id) DO UPDATE SET
+            media_name=excluded.media_name,
+            caption=excluded.caption,
+            timestamp=excluded.timestamp,
+            total_comments=excluded.total_comments,
+            discovered_comments=excluded.discovered_comments,
+            scanned_comments=excluded.scanned_comments,
+            last_updated=excluded.last_updated
+        """,
+        (
+            media_id,
+            media_name,
+            caption,
+            timestamp,
+            int(total_comments),
+            int(discovered_comments),
+            int(scanned_comments),
+            last_updated,
+        ),
+    )
+
+    connection.commit()
+
+
+def get_comment_dashboard(replyable_media):
+    connection, cursor = _get_db()
+
+    media_ids = [
+        media["media_id"]
+        for media in replyable_media.values()
+    ]
+
+    stats_by_media = {}
+    if media_ids:
+        placeholders = ",".join("?" for _ in media_ids)
+
+        cursor.execute(
+            f"""
+            SELECT *
+            FROM comment_media_stats
+            WHERE media_id IN ({placeholders})
+            """,
+            media_ids,
+        )
+
+        stats_by_media = {
+            row["media_id"]: row
+            for row in cursor.fetchall()
+        }
+
+    queue_counts = {}
+    if media_ids:
+        placeholders = ",".join("?" for _ in media_ids)
+
+        cursor.execute(
+            f"""
+            SELECT
+                media_id,
+                SUM(CASE WHEN status='DONE' THEN 1 ELSE 0 END) AS replied_comments,
+                SUM(CASE WHEN status IN ('PENDING', 'DM_SENT', 'FAILED') THEN 1 ELSE 0 END) AS pending_comments
+            FROM queue
+            WHERE media_id IN ({placeholders})
+            GROUP BY media_id
+            """,
+            media_ids,
+        )
+
+        queue_counts = {
+            row["media_id"]: row
+            for row in cursor.fetchall()
+        }
+
+    reels = {}
+
+    for media_name, media in replyable_media.items():
+        media_id = media["media_id"]
+        stats = stats_by_media.get(media_id)
+        counts = queue_counts.get(media_id)
+
+        reels[media_name] = {
+            "media_name": media_name,
+            "media_id": media_id,
+            "caption": stats["caption"] if stats else None,
+            "timestamp": stats["timestamp"] if stats else None,
+            "total_comments": int(stats["total_comments"]) if stats else 0,
+            "replied_comments": int(counts["replied_comments"]) if counts and counts["replied_comments"] is not None else 0,
+            "pending_comments": int(counts["pending_comments"]) if counts and counts["pending_comments"] is not None else 0,
+            "discovered_comments": int(stats["discovered_comments"]) if stats else 0,
+            "scanned_comments": int(stats["scanned_comments"]) if stats else 0,
+        }
+
+    summary = {
+        "total_comments": sum(
+            reel["total_comments"]
+            for reel in reels.values()
+        ),
+        "replied_comments": sum(
+            reel["replied_comments"]
+            for reel in reels.values()
+        ),
+        "pending_comments": sum(
+            reel["pending_comments"]
+            for reel in reels.values()
+        ),
+    }
+
+    cursor.execute(
+        """
+        SELECT MAX(last_updated) AS last_updated
+        FROM comment_media_stats
+        """
+    )
+    row = cursor.fetchone()
+
+    return {
+        "status": "ok",
+        "last_updated": row["last_updated"] if row else None,
+        "summary": summary,
+        "reels": reels,
+        "discovered_comments": sum(
+            reel["discovered_comments"]
+            for reel in reels.values()
+        ),
+        "failed_reels": 0,
+    }
 
 
 # ----------------------------
@@ -219,51 +544,13 @@ def queue_size(status="PENDING"):
 
 
 def clear_done():
-    connection, cursor = _get_db()
+    """
+    Deprecated compatibility hook.
 
-    cursor.execute("""
-        SELECT
-            comment_id,
-            username,
-            comment,
-            timestamp,
-            retries,
-            created_at
-        FROM queue
-        WHERE status='DONE'
-        ORDER BY timestamp ASC
-    """)
-
-    rows = cursor.fetchall()
-
-    for row in rows:
-        comment = " ".join((row["comment"] or "").split())
-
-        if len(comment) > 120:
-            comment = f"{comment[:117]}..."
-
-        logger.info(
-            "Deleting completed queue entry comment_id=%s username=%s retries=%s timestamp=%s created_at=%s comment=%r",
-            row["comment_id"],
-            row["username"],
-            row["retries"],
-            row["timestamp"],
-            row["created_at"],
-            comment,
-        )
-
-    cursor.execute("""
-        DELETE
-        FROM queue
-        WHERE status='DONE'
-    """)
-
-    connection.commit()
-
-    logger.info(
-        "Cleared done queue entries rows_deleted=%d",
-        cursor.rowcount,
-    )
+    Completed comments remain in SQLite so reply history and dashboard counts
+    are durable instead of being reconstructed from in-memory state.
+    """
+    logger.debug("Skipping queue cleanup; DONE comments are retained")
 
 
 def reset_failed():
