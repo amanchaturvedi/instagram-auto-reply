@@ -1,6 +1,10 @@
 import argparse
 import json
 
+from app.analytics import (
+    build_account_analysis_context,
+    build_reel_analysis_for_media,
+)
 from app.comments import discover, discover_all, process
 from app.config import get_replyable_media
 from app.insights.collector import collect_reel_insights
@@ -82,6 +86,17 @@ def main():
         help="Optional Instagram media ID. If omitted, collects all Reels.",
     )
 
+    analytics_parser = subparsers.add_parser(
+        "analytics",
+        help="Build deterministic analytics context for AI analysis",
+    )
+    analytics_parser.add_argument(
+        "media_id",
+        nargs="?",
+        default=None,
+        help="Optional Instagram media ID. If omitted, analyzes the full account.",
+    )
+
     web_parser = subparsers.add_parser(
         "web",
         help="Start the FastAPI web UI",
@@ -131,6 +146,28 @@ def main():
             extra={"highlight": "start"},
         )
         collect_reel_insights(args.media_id)
+
+    elif args.command == "analytics":
+        logger.info(
+            "Starting analytics command media_id=%s",
+            args.media_id,
+            extra={"highlight": "start"},
+        )
+
+        if args.media_id:
+            analysis = build_reel_analysis_for_media(args.media_id)
+            if analysis is None:
+                parser.error("Reel not found: " + args.media_id)
+        else:
+            analysis = build_account_analysis_context()
+
+        print(
+            json.dumps(
+                analysis,
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
 
     elif args.command == "web":
         import uvicorn
