@@ -311,6 +311,12 @@ function renderComments(data) {
         return String(a.media_name).localeCompare(String(b.media_name));
     });
 
+    const totalPending = reels.reduce(function(total, reel) {
+        return total + Number(reel.pending_comments || 0);
+    }, 0);
+
+    replyCommentsBtn.disabled = totalPending === 0;
+
     if (!reels.length) {
         commentsBody.innerHTML =
             '<tr><td colspan="4" class="empty">No replyable Reels configured. Enable Reels in Config.</td></tr>';
@@ -334,7 +340,7 @@ function renderComments(data) {
                     '</label>' +
                     '<button class="table-button refresh-comments-one" data-media-id="' + escapeHtml(reel.media_id) + '">Refresh</button>' +
                     '<button class="table-button reply-one" data-media-id="' + escapeHtml(reel.media_id) + '" ' +
-                        (canReply ? '' : 'disabled title="No pending comments or reply message is not configured"') +
+                        (canReply ? '' : 'disabled title="No pending comments"') +
                         '>Reply</button>' +
                 '</div>' +
             '</td>' +
