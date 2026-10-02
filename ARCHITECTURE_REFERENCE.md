@@ -120,7 +120,25 @@ The discover command validates that the supplied Reel name is currently enabled/
 
 The CLI delegates business work to the domain modules rather than implementing the workflows itself.
 
-## 3.2 app/api.py
+## 3.2 app/analytics/
+
+Analytics foundation used as the deterministic input to future AI interpretation.
+
+### metrics.py
+Calculates derived rates and snapshot-to-snapshot growth.
+
+### baseline.py
+Calculates account-level median/p25/p75 baselines from the latest available snapshot of each Reel.
+
+### posting_time.py
+Extracts Asia/Kolkata posting-time features and performs age-normalized 24-hour comparisons.
+
+### analyzer.py
+Combines baseline, posting-time analysis, Reel metrics, and 24-hour snapshot selection into an AI-ready structured context.
+
+The analytics layer does not call an LLM.
+
+## 3.3 app/api.py
 
 Single Graph API transport layer.
 
@@ -681,7 +699,7 @@ reels_skip_rate
 
 ---
 
-# 11. FASTAPI API CONTRACT
+# 12. FASTAPI API CONTRACT
 
 | Method | Path | Domain call |
 |---|---|---|
@@ -693,6 +711,9 @@ reels_skip_rate
 | POST | /api/reels/refresh | refresh_reel_catalog() |
 | GET | /api/reels/{media_id} | get_reel() |
 | POST | /api/reels/{media_id}/refresh | collect_reel_insights(media_id) |
+| GET | /api/analytics | build_account_analysis_context() |
+| GET | /api/analytics/posting-time | build_account_analysis_context()["posting_time"] |
+| GET | /api/analytics/reels/{media_id} | build_reel_analysis_for_media(media_id) |
 | GET | /api/comments | _comment_dashboard() |
 | POST | /api/comments/refresh | discover_all(limit) |
 | POST | /api/comments/refresh/{media_id} | discover(media_name, limit) |
@@ -717,7 +738,7 @@ GET /api/comments
 
 ---
 
-# 12. WEB UI DATA FLOW
+# 13. WEB UI DATA FLOW
 
 ## Insights tab
 
@@ -784,7 +805,7 @@ POST /api/config
 
 ---
 
-# 13. UI LOADING MODEL
+# 14. UI LOADING MODEL
 
 Long-running user actions use a shared button-loader helper.
 
@@ -811,7 +832,7 @@ Comments discovery also displays a table-level loader.
 
 ---
 
-# 14. INSIGHTS DATA MODEL
+# 15. INSIGHTS DATA MODEL
 
 Stored Reel fields:
 
@@ -855,7 +876,7 @@ engagement_rate
 
 ---
 
-# 15. JSON PERSISTENCE
+# 16. JSON PERSISTENCE
 
 insights.json is read and written by the Insight modules.
 
@@ -875,7 +896,7 @@ Snapshots are deduplicated by collected_at.
 
 ---
 
-# 16. LOGGING ARCHITECTURE
+# 17. LOGGING ARCHITECTURE
 
 app/logger.py exports one shared logger.
 
@@ -900,7 +921,7 @@ Important logged context:
 
 ---
 
-# 17. GITHUB ACTIONS
+# 18. GITHUB ACTIONS
 
 Workflow:
 
@@ -954,7 +975,7 @@ The workflow also contains a manual media choice list. Runtime CLI discovery use
 
 ---
 
-# 18. SECURITY / OPERATIONS
+# 19. SECURITY / OPERATIONS
 
 Credentials:
 
@@ -983,7 +1004,7 @@ External Meta constraints such as permissions, token state, API restrictions, ra
 
 ---
 
-# 19. ARCHITECTURAL DECISIONS
+# 20. ARCHITECTURAL DECISIONS
 
 ## Decision: SQLite is the queue boundary
 
@@ -1011,7 +1032,7 @@ FastAPI routes map HTTP actions onto existing domain functions rather than imple
 
 ---
 
-# 20. MAINTENANCE CONTRACTS
+# 21. MAINTENANCE CONTRACTS
 
 When modifying the repository:
 
@@ -1030,7 +1051,7 @@ When modifying the repository:
 
 ---
 
-# 21. CURRENT ARCHITECTURAL SUMMARY
+# 22. CURRENT ARCHITECTURAL SUMMARY
 
 ~~~text
 Lightweight layered automation service
