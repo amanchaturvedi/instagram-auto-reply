@@ -69,7 +69,6 @@ def _format_reel(reel):
                 else None
             ),
         },
-        "snapshots": reel.get("snapshots", []),
     }
 
 
