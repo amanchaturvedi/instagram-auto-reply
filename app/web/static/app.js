@@ -393,8 +393,8 @@ function showCommentsLoader(message) {
 }
 
 async function loadComments() {
-    showCommentsLoader("Loading comments…");
-    setStatus("Loading comments…");
+    showCommentsLoader("Loading pending comments…");
+    setStatus("Loading comments from database…");
 
     try {
         const response = await fetch("/api/comments");
@@ -699,7 +699,8 @@ function switchTab(tabName) {
     if (tabName === "insights") {
         loadDashboard();
     } else if (tabName === "comments") {
-        // Comments are refreshed only when the user clicks Refresh.
+        loadComments();
+        loadConfig();
     } else if (tabName === "config") {
         loadConfig();
     }
