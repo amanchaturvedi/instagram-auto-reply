@@ -84,6 +84,22 @@ def main():
         help="Optional Instagram media ID. If omitted, collects all Reels.",
     )
 
+    web_parser = subparsers.add_parser(
+        "web",
+        help="Start the FastAPI web UI",
+    )
+    web_parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Bind host",
+    )
+    web_parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Bind port",
+    )
+
     args = parser.parse_args()
 
     if args.command == "discover":
@@ -115,6 +131,15 @@ def main():
             extra={"highlight": "start"},
         )
         collect_reel_insights(args.media_id)
+
+    elif args.command == "web":
+        import uvicorn
+
+        uvicorn.run(
+            "app.web.server:app",
+            host=args.host,
+            port=args.port,
+        )
 
 
 if __name__ == "__main__":
