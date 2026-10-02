@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -12,6 +14,10 @@ from .service import (
     health_check,
 )
 
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+INDEX_FILE = BASE_DIR / "templates" / "index.html"
+
 app = FastAPI(
     title="Instagram Automation",
     version="1.0.0",
@@ -21,14 +27,14 @@ app = FastAPI(
 
 app.mount(
     "/static",
-    StaticFiles(directory="app/web/static"),
+    StaticFiles(directory=STATIC_DIR),
     name="static",
 )
 
 
 @app.get("/", include_in_schema=False)
 def dashboard():
-    return FileResponse("app/web/templates/index.html")
+    return FileResponse(INDEX_FILE)
 
 
 @app.get("/api/health")
