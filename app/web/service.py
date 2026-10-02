@@ -34,7 +34,7 @@ def _latest_snapshot(reel):
     )
 
 
-def _format_reel(reel):
+def _format_reel(reel, include_snapshots=False):
     snapshot = _latest_snapshot(reel) or {}
     metrics = snapshot.get("metrics", {})
 
@@ -69,6 +69,7 @@ def _format_reel(reel):
                 else None
             ),
         },
+        **({"snapshots": reel.get("snapshots", [])} if include_snapshots else {}),
     }
 
 
@@ -95,7 +96,7 @@ def get_reel(media_id):
     if reel is None:
         return None
 
-    return _format_reel(reel)
+    return _format_reel(reel, include_snapshots=True)
 
 
 def get_dashboard_summary():
