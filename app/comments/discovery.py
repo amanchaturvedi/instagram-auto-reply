@@ -43,7 +43,19 @@ def discover(media_name: str, fetch_count: int):
         )
         raise
 
-    bot_replied_to = set()
+    # Build the set in a first pass so a bot reply appearing after its
+    # parent comment in the API response is still recognized.
+    bot_replied_to = {
+        comment.get("parent_id")
+        for comment in comments
+        if comment.get("from", {}).get("username") == MY_USERNAME
+        and comment.get("parent_id")
+        and any(
+            marker in (comment.get("text") or "").lower()
+            for marker in MY_REPLY_MARKERS
+        )
+    }
+
     discovered = 0
     scanned_user_comments = 0
     skipped_own_reply = 0
@@ -59,14 +71,6 @@ def discover(media_name: str, fetch_count: int):
         text = comment.get("text") or ""
 
         if username == MY_USERNAME:
-            lower = text.lower()
-
-            if parent_id and any(
-                marker in lower
-                for marker in MY_REPLY_MARKERS
-            ):
-                bot_replied_to.add(parent_id)
-
             skipped_own_reply += 1
             continue
 
