@@ -192,7 +192,6 @@ def _comment_dashboard():
             "media_id": media_id,
             "caption": catalog_reel.get("caption"),
             "timestamp": catalog_reel.get("timestamp"),
-            "total_comments": int(catalog_reel.get("comments_count") or 0),
             "pending_comments": int(pending_counts.get(media_id, 0)),
         }
 
