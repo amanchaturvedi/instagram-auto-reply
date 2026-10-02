@@ -12,45 +12,137 @@
             <div>
                 <p class="eyebrow">THE LOST APERTURE</p>
                 <h1>Instagram Dashboard</h1>
-                <p class="subtle">Reels, performance and comments</p>
+                <p class="subtle">Reels, comments and configuration</p>
             </div>
-            <div class="actions">
-                <button id="refresh-reels-btn" class="button primary">Refresh reels</button>
-            </div>
+            <span id="status" class="status">Ready</span>
         </header>
 
-        <section id="summary" class="summary-grid"></section>
+        <nav class="tabs" aria-label="Dashboard sections">
+            <button class="tab-button active" data-tab="insights">Insights</button>
+            <button class="tab-button" data-tab="comments">Comments</button>
+            <button class="tab-button" data-tab="config">Config</button>
+        </nav>
 
-        <section class="panel">
-            <div class="panel-header">
+        <section id="tab-insights" class="tab-panel active">
+            <div class="section-toolbar">
                 <div>
-                    <h2>Reels</h2>
-                    <p class="subtle">Click a Reel to view its insight history</p>
+                    <h2>Reel Insights</h2>
+                    <p class="subtle">Click a Reel to view its historical snapshots.</p>
                 </div>
-                <span id="status" class="status">Ready</span>
+                <button id="refresh-reels-btn" class="button primary">Refresh reels</button>
             </div>
 
-            <div class="table-wrap">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Reel</th>
-                            <th>Posted</th>
-                            <th>Views</th>
-                            <th>Reach</th>
-                            <th>Likes</th>
-                            <th>Comments</th>
-                            <th>Shares</th>
-                            <th>Saves</th>
-                            <th>Watch</th>
-                            <th>Skip</th>
-                            <th>Engagement</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="reels-body"></tbody>
-                </table>
+            <section id="summary" class="summary-grid"></section>
+
+            <section class="panel">
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Reel</th>
+                                <th>Posted</th>
+                                <th>Views</th>
+                                <th>Reach</th>
+                                <th>Likes</th>
+                                <th>Comments</th>
+                                <th>Shares</th>
+                                <th>Saves</th>
+                                <th>Watch</th>
+                                <th>Skip</th>
+                                <th>Engagement</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reels-body"></tbody>
+                    </table>
+                </div>
+            </section>
+        </section>
+
+        <section id="tab-comments" class="tab-panel">
+            <div class="section-toolbar">
+                <div>
+                    <h2>Comments</h2>
+                    <p class="subtle">Configured media only. Pending means comments matching your reply keywords.</p>
+                </div>
+                <div class="toolbar-actions">
+                    <button id="refresh-comments-btn" class="button">Refresh</button>
+                    <button id="reply-comments-btn" class="button primary" disabled>Reply</button>
+                </div>
             </div>
+
+            <section id="comments-summary" class="summary-grid"></section>
+
+            <div id="reply-hint" class="hint hidden"></div>
+
+            <section class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2>Media comment status</h2>
+                        <p id="comments-last-updated" class="subtle">Not refreshed yet</p>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table class="comments-table">
+                        <thead>
+                            <tr>
+                                <th>Reel</th>
+                                <th>Total comments</th>
+                                <th>Replied</th>
+                                <th>Pending</th>
+                                <th>Eligible</th>
+                            </tr>
+                        </thead>
+                        <tbody id="comments-body"></tbody>
+                    </table>
+                </div>
+            </section>
+        </section>
+
+        <section id="tab-config" class="tab-panel">
+            <div class="section-toolbar">
+                <div>
+                    <h2>Config</h2>
+                    <p class="subtle">Read-only runtime settings from <code>app/config.py</code>.</p>
+                </div>
+            </div>
+
+            <section class="config-grid">
+                <div class="config-card">
+                    <div class="config-label">Instagram account</div>
+                    <div id="config-username" class="config-value">—</div>
+                    <div id="config-user-id" class="config-detail">—</div>
+                </div>
+
+                <div class="config-card">
+                    <div class="config-label">Reply status</div>
+                    <div id="config-reply-status" class="config-value">—</div>
+                    <div id="config-reply-detail" class="config-detail"></div>
+                </div>
+
+                <div class="config-card wide">
+                    <div class="config-label">Reply message</div>
+                    <pre id="config-reply-message" class="config-message">—</pre>
+                    <div class="config-detail">Change <code>REPLY_MESSAGE</code> in <code>app/config.py</code> and restart the web server.</div>
+                </div>
+
+                <div class="config-card">
+                    <div class="config-label">Monitored media</div>
+                    <div id="config-media-count" class="config-value">—</div>
+                    <div class="config-detail">Configured media entries used by comment automation.</div>
+                </div>
+
+                <div class="config-card">
+                    <div class="config-label">Timezone</div>
+                    <div id="config-timezone" class="config-value">—</div>
+                    <div class="config-detail">Dashboard display timezone.</div>
+                </div>
+
+                <div class="config-card wide">
+                    <div class="config-label">Reply keywords</div>
+                    <div id="config-keywords" class="tag-list"></div>
+                </div>
+            </section>
         </section>
     </main>
 
@@ -87,19 +179,6 @@
                     </table>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <div id="comments-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="comments-modal-title">
-        <div class="modal-card">
-            <div class="modal-header">
-                <div>
-                    <h2 id="comments-modal-title">Comments</h2>
-                    <p id="comments-modal-meta" class="subtle"></p>
-                </div>
-                <button id="close-comments-modal" class="icon-button" aria-label="Close">×</button>
-            </div>
-            <div id="comments-list" class="comments-list"></div>
         </div>
     </div>
 
