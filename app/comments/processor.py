@@ -106,6 +106,9 @@ def process(media_name: str | None = None, limit: int | None = None):
 
                 mark_failed(comment_id)
                 failed += 1
+                failed_by_media[queued_media] = (
+                    failed_by_media.get(queued_media, 0) + 1
+                )
                 continue
 
             mark_dm_sent(comment_id)
