@@ -10,87 +10,6 @@ BASE_URL = "https://graph.instagram.com/v25.0"
 MY_USERNAME = "the_lost_aperture_"
 IG_USER_ID = "27392931747065676"
 
-# Public reply posted after a DM is successfully sent.
-# Leave blank to disable the web Reply action and comment processing.
-REPLY_MESSAGE = "Please check DM"
-
-# Legacy reply markers are kept for duplicate-reply detection of older comments.
-REPLY_MESSAGES = [
-    "Please check DM",
-    "Please check your DM",
-    "Shared the location in DM",
-    "I've sent you the location in DM",
-    "Location sent! Check your DM",
-    "Sent you the location",
-]
-
-MEDIA = {
-    "dlf_midtown": {
-        "media_id": "18073788290362124",
-        "location": "DLF Midtown, Moti Nagar, New Delhi",
-    },
-    "dear_donna": {
-        "media_id": "18346742245170886",
-        "location": "Dear Donna, Qutab Institutional Area, New Delhi",
-    },
-    "dhan_mill": {
-        "media_id": "17942998797138354",
-        "location": "The Dhan Mill, Chhatarpur, Delhi",
-    },
-    "nukkad": {
-        "media_id": "17943925335251130",
-        "location": "Nukkad Cafe, Kailash Colony, New Delhi",
-    },
-    # "china_club": {
-    #     "media_id": "17875897377621242",
-    #     "location": "China Club, Global Business Park, Sikanderpur, Gurugram",
-    # },
-    # "nubo": {
-    #     "media_id": "18083235794531346",
-    #     "location": "Nubo, Galleria Market, Gurugram",
-    # },
-    # "guwahati_airport": {
-    #     "media_id": "18339407164268236",
-    #     "location": "Guwahati Airport, Guwahati, Assam",
-    # },
-    # "woodzo": {
-    #     "media_id": "18069156794459590",
-    #     "location": "Woodzo, Shangarh, Himachal Pradesh",
-    # },
-    # "route65": {
-    #     "media_id": "18083622698290999",
-    #     "location": "M3M Route 65, Sector 65, Gurugram",
-    # },
-    # "panjab_house": {
-    #     "media_id": "18106047890115594",
-    #     "location": "Panjab House Kitchen & Bar, Sector 65, Gurugram"
-    # },
-    # "sunder_nursery1": {
-    #     "media_id": "18165184420466476",
-    #     "location": "Sunder Nursery, New Delhi"
-    # },
-    # "sunder_nursery2": {
-    #     "media_id": "17890689507673390",
-    #     "location": "Sunder Nursery, New Delhi"
-    # },
-    # "wah_rilang": {
-    #     "media_id": "17991933054034507",
-    #     "location": "Wah Rilang Viewpoint, Meghalaya"
-    # },
-    "tehri_lake": {
-        "media_id": "17947691208289527",
-        "location": "Le ROI Floating Huts & Eco Rooms, Tehri, Uttarakhand"
-    },
-    "kijiji1": {
-        "media_id": "18175835374442926",
-        "location": "Kijiji - On The Roof, Sector 47, Gurgaon"
-    },
-    "kijiji2": {
-        "media_id": "18118430858002017",
-        "location": "Kijiji - On The Roof, Sector 47, Gurgaon"
-    }
-}
-
 DM_MESSAGES = [
     """Hey 👋 Thanks for commenting ❤️
 
@@ -177,7 +96,6 @@ def get_reply_config_map():
     from .database import (
         get_reply_config_map as read_reply_config_map,
         replace_reply_config,
-        seed_reply_config,
     )
 
     config = read_reply_config_map()
@@ -218,8 +136,9 @@ def get_reply_config_map():
             if config:
                 return config
 
-    seed_reply_config(MEDIA)
-    return read_reply_config_map()
+    return {}
+
+
 def load_reply_config():
     return {
         "replyable_reels": get_reply_config_map()
@@ -294,8 +213,5 @@ def get_media_config(media_name):
                 "media_id": media_id,
                 "location": str(media.get("location") or ""),
             }
-
-    if media_name in MEDIA:
-        return MEDIA[media_name]
 
     raise KeyError(f"Unknown media: {media_name}")
