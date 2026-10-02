@@ -1,7 +1,7 @@
 import json
 
-from config import MEDIA, MY_USERNAME
-from instagram import (
+from app.config import MEDIA, MY_USERNAME
+from app.instagram import (
     REPLIES,
     get_comments,
     get_media,
@@ -10,7 +10,7 @@ from instagram import (
     should_reply,
 )
 
-from database import (
+from app.database import (
     enqueue,
     get_pending_comments,
     mark_dm_sent,
@@ -24,8 +24,8 @@ import time
 import argparse
 import sys
 
-from logger import logger
-from insights.collector import collect_reel_insights
+from app.logger import logger
+from app.insights.collector import collect_reel_insights
 
 MY_REPLY_MARKERS = {reply.lower() for reply in REPLIES}
 COMMENT_PROCESSING_DELAY_SECONDS = (5, 8)
