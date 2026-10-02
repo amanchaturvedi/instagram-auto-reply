@@ -33,6 +33,7 @@ def refresh_reel_catalog():
                 "media_type": media.get("media_type"),
                 "media_product_type": media.get("media_product_type"),
                 "timestamp": media.get("timestamp"),
+                "comments_count": media.get("comments_count"),
                 "snapshots": [],
             }
             added += 1
@@ -45,6 +46,7 @@ def refresh_reel_catalog():
             "media_type",
             "media_product_type",
             "timestamp",
+            "comments_count",
         ):
             value = media.get(key)
 
