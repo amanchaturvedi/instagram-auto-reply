@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Instagram Insights</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <main class="shell">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">THE LOST APERTURE</p>
+                <h1>Instagram Insights</h1>
+                <p class="subtle">Reel performance dashboard</p>
+            </div>
+            <div class="actions">
+                <button id="collect-btn" class="button primary">Collect insights</button>
+                <button id="refresh-btn" class="button">Refresh</button>
+            </div>
+        </header>
+
+        <section id="summary" class="summary-grid"></section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Reels</h2>
+                    <p class="subtle">Latest lifetime metrics from Instagram Insights</p>
+                </div>
+                <span id="status" class="status">Ready</span>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Reel</th>
+                            <th>Views</th>
+                            <th>Reach</th>
+                            <th>Likes</th>
+                            <th>Comments</th>
+                            <th>Shares</th>
+                            <th>Saves</th>
+                            <th>Avg watch</th>
+                            <th>Skip</th>
+                            <th>Engagement</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reels-body"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="detail-panel" class="panel detail hidden">
+            <div class="panel-header">
+                <div>
+                    <h2 id="detail-title">Reel details</h2>
+                    <p id="detail-meta" class="subtle"></p>
+                </div>
+                <button id="close-detail" class="button">Close</button>
+            </div>
+            <pre id="detail-json"></pre>
+        </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
