@@ -214,6 +214,25 @@ python main.py insights
 python main.py insights <media_id>
 ~~~
 
+## Build deterministic analytics for AI analysis
+
+~~~bash
+python main.py analytics
+python main.py analytics <media_id>
+~~~
+
+This command does not call Instagram. It reads insights.json and produces the structured deterministic context used by the future AI layer.
+
+The context includes:
+
+- account baselines
+- derived engagement rates
+- snapshot-to-snapshot growth
+- Reel posting-time features in Asia/Kolkata
+- 24-hour age-normalized snapshots
+- posting performance by hour, weekday, 1-hour slot, and 30-minute slot
+- count, median, p25, and p75 for each analysis group
+
 With no media ID, Insight collection scans the available media and keeps only items whose media_product_type is REELS.
 
 ---
