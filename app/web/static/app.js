@@ -680,8 +680,7 @@ function switchTab(tabName) {
     if (tabName === "insights") {
         loadDashboard();
     } else if (tabName === "comments") {
-        refreshComments();
-        loadConfig();
+        // Comments are refreshed only when the user clicks Refresh.
     } else if (tabName === "config") {
         loadConfig();
     }
