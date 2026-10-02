@@ -7,7 +7,6 @@ from app.comments import discover, discover_all, process
 from app.config import (
     IG_USER_ID,
     MY_USERNAME,
-    REPLY_MESSAGE,
     get_reply_config_map,
     get_replyable_media,
     save_reply_config,
@@ -108,19 +107,6 @@ def api_config():
         "instagram_user_id": IG_USER_ID,
         "username": MY_USERNAME,
         "timezone": "Asia/Kolkata",
-        "reply_message": REPLY_MESSAGE,
-        "reply_enabled": bool(REPLY_MESSAGE.strip()),
-        "reply_keywords": [
-            "location",
-            "loc",
-            "link",
-            "map",
-            "maps",
-            "which place",
-            "where",
-            "details",
-            "📍",
-        ],
         "reels": _config_reels(),
     }
 
@@ -280,12 +266,6 @@ def _replyable_media_name(media_id):
 
 @app.post("/api/comments/reply/{media_id}")
 def api_reply_comments_for_reel(media_id: str):
-    if not REPLY_MESSAGE.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="Set REPLY_MESSAGE in app/config.py before replying.",
-        )
-
     media_name = _replyable_media_name(media_id)
 
     if media_name is None:
