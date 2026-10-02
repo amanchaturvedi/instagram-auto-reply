@@ -25,6 +25,7 @@ import argparse
 import sys
 
 from logger import logger
+from insights.collector import collect_reel_insights
 
 MY_REPLY_MARKERS = {reply.lower() for reply in REPLIES}
 COMMENT_PROCESSING_DELAY_SECONDS = (5, 8)
@@ -368,6 +369,18 @@ def main():
         help="Number of top-level comments to scan per media"
     )
 
+    insights_parser = subparsers.add_parser(
+        "insights",
+        help="Collect Reel Insights snapshots"
+    )
+
+    insights_parser.add_argument(
+        "media_id",
+        nargs="?",
+        default=None,
+        help="Optional Instagram media ID. If omitted, collects all Reels."
+    )
+
     args = parser.parse_args()
 
     if args.command == "discover":
@@ -401,6 +414,14 @@ def main():
             extra={"highlight": "start"},
         )
         discover_all(args.count)
+
+    elif args.command == "insights":
+        logger.info(
+            "Starting insights command media_id=%s",
+            args.media_id,
+            extra={"highlight": "start"},
+        )
+        collect_reel_insights(args.media_id)
 
 if __name__ == "__main__":
     main()
