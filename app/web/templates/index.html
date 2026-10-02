@@ -66,6 +66,10 @@
                     <p class="subtle">Refresh discovers eligible comments for all Reels enabled in Config and adds them to the existing SQLite queue.</p>
                 </div>
                 <div class="toolbar-actions">
+                    <label class="limit-control">
+                        <span>Limit</span>
+                        <input id="comment-limit-input" class="limit-input" type="number" min="1" max="500" value="100">
+                    </label>
                     <button id="refresh-comments-btn" class="button">Refresh</button>
                     <button id="reply-comments-btn" class="button primary" disabled>Reply All</button>
                 </div>
