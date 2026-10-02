@@ -176,18 +176,50 @@ Follow @the_lost_aperture_ for more hidden gems ❤️"""
 def get_reply_config_map():
     from .database import (
         get_reply_config_map as read_reply_config_map,
+        replace_reply_config,
         seed_reply_config,
     )
 
     config = read_reply_config_map()
 
-    if not config:
-        seed_reply_config(MEDIA)
-        config = read_reply_config_map()
+    if config:
+        return config
 
-    return config
+    # One-time migration for installations that used the previous JSON store.
+    legacy_path = "reply_config.json"
 
+    if os.path.exists(legacy_path):
+        import json
 
+        with open(legacy_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        if not isinstance(data, dict):
+            raise ValueError(f"{legacy_path} must contain a JSON object")
+
+        entries = []
+
+        for media_id, entry in data.get("replyable_reels", {}).items():
+            entries.append(
+                {
+                    "media_id": str(media_id),
+                    "media_name": str(
+                        entry.get("media_name") or f"reel_{media_id}"
+                    ),
+                    "location": str(entry.get("location") or ""),
+                    "enabled": bool(entry.get("enabled")),
+                }
+            )
+
+        if entries:
+            replace_reply_config(entries)
+            config = read_reply_config_map()
+
+            if config:
+                return config
+
+    seed_reply_config(MEDIA)
+    return read_reply_config_map()
 def load_reply_config():
     return {
         "replyable_reels": get_reply_config_map()
