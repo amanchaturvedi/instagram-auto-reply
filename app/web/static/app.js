@@ -73,15 +73,22 @@ function formatPosted(value) {
 
     if (Number.isNaN(date.getTime())) return value;
 
-    const formatted = new Intl.DateTimeFormat("en-IN", {
+    const parts = new Intl.DateTimeFormat("en-IN", {
         timeZone: "Asia/Kolkata",
         weekday: "short",
         hour: "2-digit",
         minute: "2-digit",
         hour12: true,
-    }).format(date);
+    }).formatToParts(date);
 
-    return formatted.replace(/am/i, "AM").replace(/pm/i, "PM");
+    const lookup = {};
+    parts.forEach(function(part) {
+        lookup[part.type] = part.value;
+    });
+
+    const period = String(lookup.dayPeriod || "").toUpperCase();
+
+    return lookup.hour + ":" + lookup.minute + " " + period + " " + lookup.weekday;
 }
 
 function shortText(value, limit) {
@@ -328,6 +335,10 @@ function renderComments(data) {
         data.last_updated
             ? "Last refreshed " + formatTime(data.last_updated)
             : "Not refreshed yet";
+    
+    replyCommentsBtn.disabled =
+        !Boolean(window.dashboardReplyEnabled) ||
+        Number(summary.pending_comments || 0) === 0;
 
     const reels = Object.values(data.reels || {}).sort(function(a, b) {
         return String(a.media_name).localeCompare(String(b.media_name));
