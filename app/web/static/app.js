@@ -341,7 +341,7 @@ function renderComments(data) {
 
     if (!reels.length) {
         commentsBody.innerHTML =
-            '<tr><td colspan="4" class="empty">No replyable Reels configured. Enable Reels in Config.</td></tr>';
+            '<tr><td colspan="3" class="empty">No replyable Reels configured. Enable Reels in Config.</td></tr>';
         return;
     }
 
@@ -352,7 +352,6 @@ function renderComments(data) {
             '<td class="reel-cell">' +
                 '<div class="reel-title">' + escapeHtml(reel.media_name) + '</div>' +
             '</td>' +
-            '<td>' + formatNumber(reel.total_comments) + '</td>' +
             '<td>' + formatNumber(reel.pending_comments) + '</td>' +
             '<td class="actions-cell">' +
                 '<div class="comment-row-actions">' +
