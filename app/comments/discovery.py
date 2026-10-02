@@ -1,10 +1,14 @@
-from app.comments.service import REPLIES, get_comments, should_reply
-from app.config import MEDIA, MY_USERNAME
+from app.comments.service import get_comments, should_reply
+from app.config import MEDIA, MY_USERNAME, REPLY_MESSAGE, REPLY_MESSAGES
 from app.database import enqueue
 from app.logger import logger
 
 
-MY_REPLY_MARKERS = {reply.lower() for reply in REPLIES}
+MY_REPLY_MARKERS = {
+    reply.lower()
+    for reply in [*REPLY_MESSAGES, REPLY_MESSAGE]
+    if reply
+}
 
 
 def _snippet(text, limit=120):
