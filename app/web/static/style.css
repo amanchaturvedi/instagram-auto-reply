@@ -350,6 +350,46 @@ tbody tr[data-media-id]:hover {
     font-size: 11px;
 }
 
+.config-reels-panel {
+    margin-top: 14px;
+}
+
+.config-reels-table {
+    min-width: 900px;
+}
+
+.check-cell {
+    width: 70px;
+    text-align: center;
+}
+
+.config-reel-enabled {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    cursor: pointer;
+}
+
+.location-cell {
+    width: 42%;
+}
+
+.location-input {
+    width: min(520px, 100%);
+    padding: 8px 10px;
+    border: 1px solid #d9dde2;
+    border-radius: 8px;
+    background: #fff;
+    color: #111827;
+    font-size: 12px;
+    outline: none;
+}
+
+.location-input:focus {
+    border-color: #9ca3af;
+    box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.06);
+}
+
 .modal {
     position: fixed;
     inset: 0;
