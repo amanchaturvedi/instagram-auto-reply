@@ -105,10 +105,6 @@ def discover(media_name: str, fetch_count: int):
         if scanned_user_comments >= fetch_count:
             break
 
-    total_comments = metadata.get("comments_count")
-    if total_comments is None:
-        total_comments = len(comments)
-
     pending_count = get_pending_count_by_media([media_id]).get(media_id, 0)
     last_updated = datetime.now(
         ZoneInfo("Asia/Kolkata")
@@ -119,7 +115,6 @@ def discover(media_name: str, fetch_count: int):
         "media_id": media_id,
         "caption": metadata.get("caption"),
         "timestamp": metadata.get("timestamp"),
-        "total_comments": int(total_comments),
         "pending_comments": pending_count,
         "discovered_comments": discovered,
         "scanned_comments": len(comments),
