@@ -2,16 +2,19 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from app.comments.service import get_comments, should_reply
-from app.config import MY_USERNAME, REPLY_MESSAGE, REPLY_MESSAGES, get_replyable_media
+from app.config import get_replyable_media, MY_USERNAME
 from app.database import enqueue, get_pending_count_by_media
 from app.instagram import get_media_by_id
 from app.logger import logger
 
 
 MY_REPLY_MARKERS = {
-    reply.lower()
-    for reply in [*REPLY_MESSAGES, REPLY_MESSAGE]
-    if reply
+    "please check dm",
+    "please check your dm",
+    "shared the location in dm",
+    "i've sent you the location in dm",
+    "location sent! check your dm",
+    "sent you the location",
 }
 
 
