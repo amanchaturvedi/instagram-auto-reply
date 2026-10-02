@@ -103,6 +103,31 @@ function setStatus(message) {
     statusEl.textContent = message;
 }
 
+function setButtonLoading(button, loading, label) {
+    if (!button) return;
+
+    if (loading) {
+        if (!button.dataset.loadingOriginal) {
+            button.dataset.loadingOriginal = button.innerHTML;
+        }
+
+        button.disabled = true;
+        button.innerHTML =
+            '<span class="button-loading">' +
+                '<span class="button-spinner" aria-hidden="true"></span>' +
+                '<span>' + escapeHtml(label) + '</span>' +
+            '</span>';
+        return;
+    }
+
+    if (button.dataset.loadingOriginal) {
+        button.innerHTML = button.dataset.loadingOriginal;
+        delete button.dataset.loadingOriginal;
+    }
+
+    button.disabled = false;
+}
+
 function metricCard(label, value) {
     return '<div class="metric-card">' +
         '<div class="metric-label">' + label + '</div>' +
@@ -196,7 +221,7 @@ async function loadDashboard() {
 }
 
 async function refreshReels() {
-    refreshReelsBtn.disabled = true;
+    setButtonLoading(refreshReelsBtn, true, "Refreshing…");
     setStatus("Refreshing reels…");
 
     try {
@@ -218,14 +243,12 @@ async function refreshReels() {
     } catch (error) {
         setStatus(error.message);
     } finally {
-        refreshReelsBtn.disabled = false;
+        setButtonLoading(refreshReelsBtn, false);
     }
 }
 
 async function refreshOneReel(mediaId, button) {
-    const original = button.textContent;
-    button.disabled = true;
-    button.textContent = "…";
+    setButtonLoading(button, true, "Refreshing…");
     setStatus("Refreshing Reel…");
 
     try {
@@ -244,8 +267,7 @@ async function refreshOneReel(mediaId, button) {
     } catch (error) {
         setStatus(error.message);
     } finally {
-        button.disabled = false;
-        button.textContent = original;
+        setButtonLoading(button, false);
     }
 }
 
@@ -402,7 +424,7 @@ function getCommentLimit(input) {
 }
 
 async function refreshComments() {
-    refreshCommentsBtn.disabled = true;
+    setButtonLoading(refreshCommentsBtn, true, "Refreshing…");
     replyCommentsBtn.disabled = true;
     showCommentsLoader("Refreshing pending comments…");
     setStatus("Refreshing comments…");
@@ -428,14 +450,12 @@ async function refreshComments() {
             '<tr><td colspan="4" class="empty">' + escapeHtml(error.message) + '</td></tr>';
         setStatus(error.message);
     } finally {
-        refreshCommentsBtn.disabled = false;
+        setButtonLoading(refreshCommentsBtn, false);
     }
 }
 
 async function refreshCommentsForReel(mediaId, button) {
-    const original = button.textContent;
-    button.disabled = true;
-    button.textContent = "…";
+    setButtonLoading(button, true, "Refreshing…");
     refreshCommentsBtn.disabled = true;
     setStatus("Refreshing Reel comments…");
 
@@ -475,8 +495,7 @@ async function refreshCommentsForReel(mediaId, button) {
         setStatus(error.message);
     } finally {
         refreshCommentsBtn.disabled = false;
-        button.disabled = false;
-        button.textContent = original;
+        setButtonLoading(button, false);
     }
 }
 
@@ -489,9 +508,7 @@ async function replyPendingCommentsForReel(mediaId, button) {
 
     if (!confirmed) return;
 
-    const original = button.textContent;
-    button.disabled = true;
-    button.textContent = "…";
+    setButtonLoading(button, true, "Replying…");
     refreshCommentsBtn.disabled = true;
     replyCommentsBtn.disabled = true;
     setStatus("Processing Reel comments…");
@@ -521,6 +538,7 @@ async function replyPendingCommentsForReel(mediaId, button) {
         setStatus(error.message);
     } finally {
         refreshCommentsBtn.disabled = false;
+        setButtonLoading(button, false);
         await loadConfig();
     }
 }
@@ -534,7 +552,7 @@ async function replyPendingComments() {
 
     if (!confirmed) return;
 
-    replyCommentsBtn.disabled = true;
+    setButtonLoading(replyCommentsBtn, true, "Replying…");
     refreshCommentsBtn.disabled = true;
     setStatus("Processing comments…");
 
@@ -560,6 +578,7 @@ async function replyPendingComments() {
         setStatus(error.message);
     } finally {
         refreshCommentsBtn.disabled = false;
+        setButtonLoading(replyCommentsBtn, false);
         await loadConfig();
     }
 }
@@ -616,7 +635,7 @@ function renderConfigReels(reels) {
 }
 
 async function saveConfig() {
-    saveConfigBtn.disabled = true;
+    setButtonLoading(saveConfigBtn, true, "Saving…");
     setStatus("Saving config…");
 
     try {
@@ -649,7 +668,7 @@ async function saveConfig() {
     } catch (error) {
         setStatus(error.message);
     } finally {
-        saveConfigBtn.disabled = false;
+        setButtonLoading(saveConfigBtn, false);
     }
 }
 
