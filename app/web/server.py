@@ -29,7 +29,7 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 INDEX_FILE = BASE_DIR / "templates" / "index.html"
 
-COMMENT_REPLY_SCAN_LIMIT = 10_000
+COMMENT_REPLY_SCAN_LIMIT = 100
 
 _last_comment_discovery = None
 
