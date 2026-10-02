@@ -3,6 +3,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.analytics import (
+    build_account_analysis_context,
+    build_reel_analysis_for_media,
+)
 from app.comments import discover, discover_all, process
 from app.config import (
     IG_USER_ID,
@@ -141,6 +145,26 @@ def api_save_config(payload: dict):
 @app.get("/api/dashboard")
 def api_dashboard():
     return get_dashboard_summary()
+
+
+@app.get("/api/analytics")
+def api_analytics():
+    return build_account_analysis_context()
+
+
+@app.get("/api/analytics/posting-time")
+def api_analytics_posting_time():
+    return build_account_analysis_context()["posting_time"]
+
+
+@app.get("/api/analytics/reels/{media_id}")
+def api_analytics_reel(media_id: str):
+    analysis = build_reel_analysis_for_media(media_id)
+
+    if analysis is None:
+        raise HTTPException(status_code=404, detail="Reel not found")
+
+    return analysis
 
 
 @app.get("/api/reels")
