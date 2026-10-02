@@ -282,12 +282,13 @@ tbody tr[data-media-id]:hover {
 }
 
 .actions-cell {
-    text-align: left;
+    text-align: right;
 }
 
 .comment-row-actions {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 7px;
 }
 
