@@ -7,7 +7,6 @@ const summaryEl = document.getElementById("summary");
 const reelsBody = document.getElementById("reels-body");
 const refreshReelsBtn = document.getElementById("refresh-reels-btn");
 
-const commentsSummaryEl = document.getElementById("comments-summary");
 const commentsBody = document.getElementById("comments-body");
 const commentsLastUpdatedEl = document.getElementById("comments-last-updated");
 const refreshCommentsBtn = document.getElementById("refresh-comments-btn");
@@ -313,27 +312,11 @@ async function openReel(mediaId) {
 }
 
 function renderComments(data) {
-    const summary = data.summary || {};
-
-    commentsSummaryEl.innerHTML =
-        '<div class="card">' +
-            '<div class="card-label">Total comments</div>' +
-            '<div class="card-value">' + formatNumber(summary.total_comments) + '</div>' +
-        '</div>' +
-        '<div class="card">' +
-            '<div class="card-label">Replied comments</div>' +
-            '<div class="card-value">' + formatNumber(summary.replied_comments) + '</div>' +
-        '</div>' +
-        '<div class="card">' +
-            '<div class="card-label">Pending comments</div>' +
-            '<div class="card-value">' + formatNumber(summary.pending_comments) + '</div>' +
-        '</div>';
-
     commentsLastUpdatedEl.textContent =
         data.last_updated
             ? "Last refreshed " + formatTime(data.last_updated)
             : "Not refreshed yet";
-    
+
     replyCommentsBtn.disabled = !Boolean(window.dashboardReplyEnabled);
 
     const reels = Object.values(data.reels || {}).sort(function(a, b) {
@@ -357,10 +340,16 @@ function renderComments(data) {
             '<td>' + formatNumber(reel.replied_comments) + '</td>' +
             '<td>' + formatNumber(reel.pending_comments) + '</td>' +
             '<td class="actions-cell">' +
-                '<button class="table-button refresh-comments-one" data-media-id="' + escapeHtml(reel.media_id) + '">Refresh</button>' +
-                '<button class="table-button reply-one" data-media-id="' + escapeHtml(reel.media_id) + '" ' +
-                    (canReply ? '' : 'disabled title="No pending comments or reply message is not configured"') +
-                    '>Reply</button>' +
+                '<div class="comment-row-actions">' +
+                    '<label class="row-limit-control">' +
+                        '<span>Limit</span>' +
+                        '<input class="limit-input comment-limit-one" type="number" min="1" max="500" value="100" aria-label="Comment refresh limit">' +
+                    '</label>' +
+                    '<button class="table-button refresh-comments-one" data-media-id="' + escapeHtml(reel.media_id) + '">Refresh</button>' +
+                    '<button class="table-button reply-one" data-media-id="' + escapeHtml(reel.media_id) + '" ' +
+                        (canReply ? '' : 'disabled title="No pending comments or reply message is not configured"') +
+                        '>Reply</button>' +
+                '</div>' +
             '</td>' +
         '</tr>';
     }).join("");
@@ -397,8 +386,9 @@ async function loadComments() {
     }
 }
 
-function getCommentLimit() {
-    const value = Number(commentLimitInput.value);
+function getCommentLimit(input) {
+    const source = input || commentLimitInput;
+    const value = Number(source.value);
 
     if (!Number.isInteger(value) || value < 1 || value > 500) {
         throw new Error("Limit must be between 1 and 500");
@@ -442,7 +432,13 @@ async function refreshCommentsForReel(mediaId, button) {
     setStatus("Refreshing Reel comments…");
 
     try {
-        const limit = getCommentLimit();
+        const row = button.closest("tr");
+        const limitInput = row ? row.querySelector(".comment-limit-one") : null;
+        if (!limitInput) {
+            throw new Error("Comment limit input not found");
+        }
+
+        const limit = getCommentLimit(limitInput);
         const response = await fetch(
             "/api/comments/refresh/" + encodeURIComponent(mediaId) + "?limit=" + encodeURIComponent(limit),
             { method: "POST" }
