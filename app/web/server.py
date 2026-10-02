@@ -1,9 +1,11 @@
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.comments import discover_all, process
-from app.comments.service import should_reply
+from app.comments.service import get_comments
 from app.comments.stats import get_comment_stats, refresh_comment_stats
 from app.config import IG_USER_ID, MEDIA, MY_USERNAME, REPLY_MESSAGE
 from app.insights.catalog import refresh_reel_catalog
@@ -16,8 +18,6 @@ from .service import (
     get_reels,
     health_check,
 )
-
-from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -88,14 +88,29 @@ def api_refresh_reels():
     return refresh_reel_catalog()
 
 
-@app.get("/api/reels/{media_id}")
-def api_reel(media_id: str):
-    reel = get_reel(media_id)
+@app.get("/api/reels/{media_id}/comments")
+def api_reel_comments(media_id: str, limit: int = 20):
+    if limit < 1 or limit > 100:
+        raise HTTPException(
+            status_code=400,
+            detail="limit must be between 1 and 100",
+        )
 
-    if reel is None:
-        raise HTTPException(status_code=404, detail="Reel not found")
+    comments = []
 
-    return reel
+    for comment in get_comments(media_id, limit):
+        comments.append(
+            {
+                "id": comment.get("id"),
+                "username": comment.get("from", {}).get("username"),
+                "text": comment.get("text"),
+                "timestamp": comment.get("timestamp"),
+                "parent_id": comment.get("parent_id"),
+                "hidden": comment.get("hidden", False),
+            }
+        )
+
+    return {"comments": comments}
 
 
 @app.post("/api/reels/{media_id}/refresh")
@@ -145,26 +160,11 @@ def api_reply_comments():
     return refresh_comment_stats()
 
 
-@app.get("/api/reels/{media_id}/comments")
-def api_reel_comments(media_id: str, limit: int = 20):
-    if limit < 1 or limit > 100:
-        raise HTTPException(
-            status_code=400,
-            detail="limit must be between 1 and 100",
-        )
+@app.get("/api/reels/{media_id}")
+def api_reel(media_id: str):
+    reel = get_reel(media_id)
 
-    comments = []
+    if reel is None:
+        raise HTTPException(status_code=404, detail="Reel not found")
 
-    for comment in __import__("app.comments.service", fromlist=["get_comments"]).get_comments(media_id, limit):
-        comments.append(
-            {
-                "id": comment.get("id"),
-                "username": comment.get("from", {}).get("username"),
-                "text": comment.get("text"),
-                "timestamp": comment.get("timestamp"),
-                "parent_id": comment.get("parent_id"),
-                "hidden": comment.get("hidden", False),
-            }
-        )
-
-    return {"comments": comments}
+    return reel
