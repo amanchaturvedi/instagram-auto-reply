@@ -1,5 +1,6 @@
+import time
 from pathlib import Path
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -21,7 +22,7 @@ from ai.analyzers import AccountAnalyzer, ReelAnalyzer
 from ai.rag import ChatAnalyzer, retrieve_reels
 from app.insights.catalog import refresh_reel_catalog
 from app.insights.collector import collect_reel_insights
-from app.logger import logger
+from app.logger import ACCESS_LOGGER, logger
 
 from .service import (
     get_dashboard_summary,
@@ -49,6 +50,35 @@ app.mount(
     StaticFiles(directory=STATIC_DIR),
     name="static",
 )
+
+
+@app.middleware("http")
+async def access_log_middleware(request: Request, call_next):
+    started_at = time.perf_counter()
+
+    try:
+        response = await call_next(request)
+    except Exception:
+        duration_ms = round((time.perf_counter() - started_at) * 1000, 1)
+        ACCESS_LOGGER.exception(
+            "ACCESS request method=%s path=%s status=error duration_ms=%s client=%s",
+            request.method,
+            request.url.path,
+            duration_ms,
+            request.client.host if request.client else "-",
+        )
+        raise
+
+    duration_ms = round((time.perf_counter() - started_at) * 1000, 1)
+    ACCESS_LOGGER.info(
+        "ACCESS request method=%s path=%s status=%s duration_ms=%s client=%s",
+        request.method,
+        request.url.path,
+        response.status_code,
+        duration_ms,
+        request.client.host if request.client else "-",
+    )
+    return response
 
 
 def _config_reels():
