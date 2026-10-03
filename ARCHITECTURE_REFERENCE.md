@@ -1100,3 +1100,49 @@ Configuration
 Logging
    -> provides operational visibility
 ~~~
+
+
+---
+
+## 23. AI ANALYTICS MODULE
+
+The AI layer is intentionally provider-agnostic. Analytics and prompt code depend on the `LLM` interface rather than on Ollama or any future vendor SDK.
+
+### AI module tree
+
+    ai/
+    ├── __init__.py
+    ├── llm/
+    │   ├── __init__.py
+    │   ├── base.py
+    │   ├── factory.py
+    │   └── ollama_llm.py
+    ├── analyzers/
+    │   ├── __init__.py
+    │   └── reel_analyzer.py
+    └── prompts/
+        ├── __init__.py
+        └── reel_analysis.py
+
+### Provider contract
+
+`ai.llm.base.LLM` exposes `generate(prompt, system=None, **kwargs) -> str`.
+
+The factory currently supports `ollama` (local Ollama HTTP API). Future providers can be added as adapters without changing `ReelAnalyzer` or the prompt layer.
+
+### Configuration
+
+    LLM_PROVIDER=ollama
+    OLLAMA_BASE_URL=http://localhost:11434
+    OLLAMA_MODEL=llama3.1:8b
+
+### Local Ollama smoke test
+
+    ollama pull llama3.1:8b
+    python ai_test.py
+
+Expected output includes `Provider: OllamaLLM`, the configured model, and `Ollama connection is working.`
+
+### Design rule
+
+Keep deterministic Instagram metrics outside the LLM. Python should calculate metrics such as reach, views, watch time, shares, saves, comments and engagement rates. The LLM should interpret those metrics, identify patterns/hypotheses, and suggest experiments. This keeps numerical analysis reproducible and makes the AI layer replaceable.
