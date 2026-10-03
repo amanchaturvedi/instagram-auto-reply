@@ -23,7 +23,12 @@ async function runAi(endpoint, button, loadingLabel) {
         const body = await response.json();
         if (!response.ok) throw new Error(body.detail || "AI analysis failed");
         aiOutput.textContent = body.analysis || "No analysis returned.";
-        aiStatus.textContent = "Analysis complete";
+        if (body.reels_analyzed !== undefined) {
+            aiStatus.textContent =
+                "Analysis complete · " + formatNumber(body.reels_analyzed) + " Reels analyzed";
+        } else {
+            aiStatus.textContent = "Analysis complete";
+        }
         setStatus("AI analysis complete");
     } catch (error) {
         aiOutput.textContent = error.message;
