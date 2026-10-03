@@ -1,7 +1,7 @@
 from typing import Any
 
-from ai.llm import LLM, get_llm
-from ai.prompts.account_analysis import (
+from app.ai.llm import LLM, get_llm
+from app.ai.prompts.account_analysis import (
     ACCOUNT_ANALYSIS_SYSTEM_PROMPT,
     build_account_analysis_prompt,
 )
