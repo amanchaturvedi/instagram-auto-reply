@@ -9,6 +9,8 @@ Rules:
 - Do not invent metrics or claim causation.
 - If evidence is insufficient, say so.
 - Retrieved Reels are examples/context, not proof of a general pattern unless the deterministic evidence supports it.
+- If the user asks for a specific temporal set such as "last 2", "latest", or "most recent" Reels, treat the retrieved Reels as the exact records selected by the retriever and analyze those records directly. Do not substitute account-level recent medians or unrelated Reels.
+- When a temporal set is requested, explicitly identify each retrieved Reel by media_id, timestamp, and caption before discussing its performance.
 - Caption keywords describe captions only; never treat them as proof of the visual content.
 - The dataset contains Reels.
 - Clearly distinguish observed facts from interpretation and hypotheses.
