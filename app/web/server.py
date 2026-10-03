@@ -172,7 +172,12 @@ def api_analytics_reel(media_id: str):
 def api_ai_account():
     try:
         context = build_account_analysis_context()
-        return {"status": "ok", "analysis": AccountAnalyzer().analyze(context)}
+        analysis = AccountAnalyzer().analyze(context)
+        return {
+            "status": "ok",
+            "reels_analyzed": len(context.get("reels", [])),
+            "analysis": analysis,
+        }
     except Exception as exc:
         logger.exception("AI account analysis failed")
         raise HTTPException(status_code=502, detail=f"AI analysis failed: {exc}") from exc
