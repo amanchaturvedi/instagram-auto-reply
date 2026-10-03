@@ -30,6 +30,13 @@ def _request(method, url, *, params=None, data=None, json=None, headers=None):
     path = urlsplit(url).path
     request_body = json if json is not None else data
 
+    OUT_ACCESS_LOGGER.info(
+        "OUTBOUND REQUEST method=%s path=%s request_body=%s",
+        method_upper,
+        path,
+        format_log_body(request_body),
+    )
+
     try:
         response = requests.request(
             method,
@@ -43,23 +50,21 @@ def _request(method, url, *, params=None, data=None, json=None, headers=None):
     except requests.RequestException:
         duration_ms = round((time.perf_counter() - started_at) * 1000, 1)
         OUT_ACCESS_LOGGER.exception(
-            "OUTBOUND request method=%s path=%s status=error duration_ms=%s request_body=%s response_body=%s",
+            "OUTBOUND RESPONSE method=%s path=%s status=error duration_ms=%s response_body=%s",
             method_upper,
             path,
             duration_ms,
-            format_log_body(request_body),
             "-",
         )
         raise
 
     duration_ms = round((time.perf_counter() - started_at) * 1000, 1)
     OUT_ACCESS_LOGGER.info(
-        "OUTBOUND request method=%s path=%s status=%s duration_ms=%s request_body=%s response_body=%s",
+        "OUTBOUND RESPONSE method=%s path=%s status=%s duration_ms=%s response_body=%s",
         method_upper,
         path,
         response.status_code,
         duration_ms,
-        format_log_body(request_body),
         format_log_body(_response_body(response)),
     )
 
