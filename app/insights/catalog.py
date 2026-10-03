@@ -7,15 +7,18 @@ from zoneinfo import ZoneInfo
 
 IST = ZoneInfo("Asia/Kolkata")
 
+
 def refresh_reel_catalog():
     data = _load_insights()
-    existing_ids = set(data["reels"])
 
     added = 0
     updated = 0
     skipped = 0
 
-    for media in get_media(stop_ids=existing_ids):
+    # Always paginate through the complete media response. Previously this
+    # passed known IDs as stop_ids, which could stop pagination as soon as an
+    # already-known Reel appeared on an older page and hide all older Reels.
+    for media in get_media():
         if media.get("media_product_type") != "REELS":
             skipped += 1
             continue
@@ -62,10 +65,10 @@ def refresh_reel_catalog():
     _save_insights(data)
 
     logger.info(
-        "Reel catalog refresh completed added=%d updated=%d existing=%d skipped=%d",
+        "Reel catalog refresh completed added=%d updated=%d total=%d skipped=%d",
         added,
         updated,
-        len(existing_ids),
+        len(data["reels"]),
         skipped,
         extra={"highlight": "summary"},
     )
