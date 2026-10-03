@@ -11,8 +11,8 @@ def parse_json_response(raw: str, required_keys: tuple[str, ...]) -> dict[str, A
     text = str(raw or "").strip()
 
     if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?\\s*", "", text, flags=re.IGNORECASE)
-        text = re.sub(r"\\s*```$", "", text).strip()
+        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s*```$", "", text).strip()
 
     try:
         payload = json.loads(text)
