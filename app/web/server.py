@@ -16,6 +16,7 @@ from app.config import (
     save_reply_config,
 )
 from app.database import get_pending_count_by_media
+from ai.analyzers import AccountAnalyzer, ReelAnalyzer
 from app.insights.catalog import refresh_reel_catalog
 from app.insights.collector import collect_reel_insights
 from app.logger import logger
@@ -165,6 +166,28 @@ def api_analytics_reel(media_id: str):
         raise HTTPException(status_code=404, detail="Reel not found")
 
     return analysis
+
+
+@app.post("/api/ai/account")
+def api_ai_account():
+    try:
+        context = build_account_analysis_context()
+        return {"status": "ok", "analysis": AccountAnalyzer().analyze(context)}
+    except Exception as exc:
+        logger.exception("AI account analysis failed")
+        raise HTTPException(status_code=502, detail=f"AI analysis failed: {exc}") from exc
+
+
+@app.post("/api/ai/reels/{media_id}")
+def api_ai_reel(media_id: str):
+    context = build_reel_analysis_for_media(media_id)
+    if context is None:
+        raise HTTPException(status_code=404, detail="Reel not found")
+    try:
+        return {"status": "ok", "media_id": media_id, "analysis": ReelAnalyzer().analyze(context)}
+    except Exception as exc:
+        logger.exception("AI Reel analysis failed media_id=%s", media_id)
+        raise HTTPException(status_code=502, detail=f"AI analysis failed: {exc}") from exc
 
 
 @app.get("/api/reels")

@@ -20,6 +20,7 @@
         <nav class="tabs" aria-label="Dashboard sections">
             <button class="tab-button active" data-tab="insights">Insights</button>
             <button class="tab-button" data-tab="comments">Comments</button>
+            <button class="tab-button" data-tab="ai">AI Analysis</button>
             <button class="tab-button" data-tab="config">Config</button>
         </nav>
 
@@ -92,6 +93,41 @@
                         </thead>
                         <tbody id="comments-body"></tbody>
                     </table>
+                </div>
+            </section>
+        </section>
+
+        <section id="tab-ai" class="tab-panel">
+            <div class="section-toolbar">
+                <div>
+                    <h2>AI Analysis</h2>
+                    <p class="subtle">Use deterministic Instagram analytics as context for a local Ollama model.</p>
+                </div>
+                <button id="ai-account-btn" class="button primary">Analyze account</button>
+            </div>
+            <section class="ai-grid">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h2>Analyze a Reel</h2>
+                            <p class="subtle">Select a Reel and ask the AI to interpret its performance.</p>
+                        </div>
+                    </div>
+                    <div class="ai-controls">
+                        <select id="ai-reel-select" class="ai-select">
+                            <option value="">Select a Reel</option>
+                        </select>
+                        <button id="ai-reel-btn" class="button">Analyze Reel</button>
+                    </div>
+                </div>
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h2>AI output</h2>
+                            <p id="ai-status" class="subtle">Ready</p>
+                        </div>
+                    </div>
+                    <div id="ai-output" class="ai-output empty">Choose an analysis above.</div>
                 </div>
             </section>
         </section>
