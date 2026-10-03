@@ -47,6 +47,15 @@ logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
 logger.handlers.clear()
 logger.propagate = False
 
+# Named application access loggers. They intentionally share the existing
+# rotating file/console handlers while keeping access traffic distinguishable.
+ACCESS_LOGGER = logging.getLogger("instagram.access")
+OUT_ACCESS_LOGGER = logging.getLogger("instagram.out_access")
+ACCESS_LOGGER.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
+OUT_ACCESS_LOGGER.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
+ACCESS_LOGGER.propagate = True
+OUT_ACCESS_LOGGER.propagate = True
+
 file_handler = TimedRotatingFileHandler(
     LOG_FILE,
     when="midnight",
