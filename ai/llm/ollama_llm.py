@@ -2,7 +2,7 @@ from typing import Any, Optional
 
 import requests
 
-from config import OLLAMA_BASE_URL, OLLAMA_MODEL
+from app.config import OLLAMA_BASE_URL, OLLAMA_MODEL
 from .base import LLM
 
 

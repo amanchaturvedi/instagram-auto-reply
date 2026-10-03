@@ -1,428 +1,1110 @@
-# Engineering Reference: Instagram Auto Reply
 
-This repository is a lightweight, single-process automation workflow that discovers Instagram comments, queues eligible interactions in SQLite, sends DM replies, and posts public replies when the DM succeeds. The implementation is intentionally simple and operationally oriented rather than framework-driven.
+# ARCHITECTURE REFERENCE
+## Instagram Auto Reply
+
+This document describes the current implementation of the repository: Instagram Graph API transport, Reel catalog and Insights storage, SQLite-backed Reel reply configuration, SQLite pending-comment queue, FastAPI dashboard, CLI orchestration, and GitHub Actions.
+
+The project is deliberately lightweight and single-process. It uses module-level functions, plain dictionaries, SQLite, and JSON rather than an ORM or class-heavy framework.
 
 ---
 
-## 1. PROJECT SYSTEM ARCHITECTURE
+# 1. SYSTEM ARCHITECTURE
 
-### Directory & File Tree
+~~~text
+                    ┌───────────────────────┐
+                    │ Presentation           │
+                    │                       │
+                    │ main.py CLI            │
+                    │ FastAPI dashboard      │
+                    └──────────┬────────────┘
+                               │
+                    ┌──────────▼────────────┐
+                    │ Application workflows │
+                    │                       │
+                    │ comments/discovery     │
+                    │ comments/processor     │
+                    │ insights/catalog       │
+                    │ insights/collector     │
+                    └───────┬────────┬───────┘
+                            │        │
+                 ┌──────────▼───┐ ┌─▼──────────────┐
+                 │ Instagram    │ │ Persistence     │
+                 │ facade       │ │                │
+                 │ instagram.py │ │ database.py    │
+                 └──────┬───────┘ │ instagram.db   │
+                        │         │ insights.json  │
+                        ▼         └────────────────┘
+                 ┌─────────────────────────┐
+                 │ app/api.py              │
+                 │ Instagram Graph API     │
+                 └─────────────────────────┘
 
-```text
+Cross-cutting:
+  app/config.py
+  app/logger.py
+~~~
+
+Core boundary:
+
+~~~text
+Instagram discovery
+       |
+       v
+SQLite queue
+       |
+       v
+queue processing
+       |
+       +----> DM
+       |
+       +----> public reply
+~~~
+
+---
+
+# 2. DIRECTORY TREE
+
+~~~text
 instagram-auto-reply/
-├── .env
-├── .git/
-├── .github/
-│   └── workflows/
-│       └── instagram.yml
-├── .gitignore
-├── .venv/                                 # local virtual environment
-├── __pycache__/
 ├── README.md
-├── config.py
-├── database.py
-├── index.html
-├── instagram.db                           # runtime SQLite database artifact
-├── instagram.py
-├── logger.py
+├── ARCHITECTURE_REFERENCE.md
 ├── main.py
-├── media.json                             # runtime exported media list
 ├── requirements.txt
+├── media.json
+├── insights.json
+├── instagram.db
 ├── logs/
-│   ├── instagram.log
-│   ├── instagram.log.2026-08-18
-│   ├── instagram.log.2026-08-19
-│   ├── instagram.log.2026-08-20
-│   ├── instagram.log.2026-08-21
-│   ├── instagram.log.2026-08-22
-│   ├── instagram.log.2026-08-24
-│   ├── instagram.log.2026-09-02
-│   ├── instagram.log.2026-09-03
-│   ├── instagram.log.2026-09-04
-│   ├── instagram.log.2026-09-10
-│   ├── instagram.log.2026-09-14
-│   ├── instagram.log.2026-09-21
-│   ├── instagram.log.2026-09-29
-│   └── instagram.log.2026-09-30
-├── venv/                                  # alternate local environment artifact
-└── generated runtime state (from execution):
-    └── SQLite queue rows and response artifacts persisted in instagram.db
-```
-
-### High-Level Architecture
-
-This project follows a layered CLI orchestration pattern with explicit separation of concerns:
-
-- Presentation / orchestration layer:
-  - [main.py](main.py) handles command parsing and user-driven workflow entrypoints.
-  - Responsibilities:
-    - `discover`
-    - `discover_all`
-    - `process`
-    - `media`
-- Business logic / service layer:
-  - [instagram.py](instagram.py) is the integration facade for Meta Graph API actions:
-    - fetch comments
-    - decide whether a comment qualifies for a reply
-    - send DM
-    - post a public comment reply
-- Data persistence layer:
-  - [database.py](database.py) owns the SQLite queue and all queue-state transitions.
-  - The database is the operational integration point between discovery and processing.
-- Configuration / environment layer:
-  - [config.py](config.py) stores fixed media IDs, DM templates, account metadata, and environment-derived `ACCESS_TOKEN`.
-- Observability layer:
-  - [logger.py](logger.py) creates a globally shared `logger` with rotating file handlers and colorized console output.
-
-This is not a framework-based MVC or hexagonal architecture. It is more accurately:
-
-- a layered automation service,
-- with external API adapters,
-- plus a durable SQLite queue as a state boundary.
-
-Decoupling is achieved by:
-- keeping HTTP and Instagram-specific logic in [instagram.py](instagram.py),
-- keeping storage semantics in [database.py](database.py),
-- keeping runtime constants in [config.py](config.py),
-- letting [main.py](main.py) orchestrate execution instead of embedding business logic inside transport code.
-
-### Component Interaction Data Flow
-
-1. CLI entrypoint
-   - [main.py](main.py) parses args via `argparse`.
-   - Supported commands:
-     - `discover`
-     - `discover_all`
-     - `process`
-     - `media`
-
-2. Discovery workflow
-   - `discover(media_name, fetch_count)` calls `get_comments(media_id, fetch_count)` from [instagram.py](instagram.py).
-   - Returned comment payloads are plain dicts from the Instagram Graph API.
-   - Each comment is filtered by:
-     - `username == MY_USERNAME`
-     - `hidden`
-     - `parent_id`
-     - `should_reply(text)`
-   - Eligible comments are passed to `enqueue(comment, media_name, media_id)` in [database.py](database.py).
-   - `enqueue` inserts them into the `queue` table using `INSERT OR IGNORE`.
-
-3. Queue processing workflow
-   - `process(media_name=None, limit=None)` pulls rows from `get_pending_comments(...)`.
-   - Each queued row is processed sequentially, with a randomized delay between items.
-   - The processing loop:
-     - reads `comment_id`, `username`, `comment`, `media_name`, `status`, `retries`
-     - calls `send_dm(comment_id, queued_media)`
-     - if DM succeeds, calls `reply_comment(comment_id)`
-     - on success, marks row as `DONE`
-     - on failure, calls `mark_failed(comment_id)`
-
-4. Persistence semantics
-   - `mark_dm_sent`, `mark_done`, and `mark_failed` mutate state in `queue`.
-   - Retry logic is encoded in `database.py`:
-     - `retries = retries + 1`
-     - status transitions are computed as:
-       - if `retries + 1 >= 3` then `FAILED`
-       - else if current status is `DM_SENT` keep `DM_SENT`
-       - else revert to `PENDING`
-
-5. Operational cleanup
-   - `clear_done()` deletes rows whose status is `DONE`.
-   - `reset_failed()` resets rows in `FAILED` back to `PENDING` with retries reset to 0.
-
-6. Logging and diagnostics
-   - Each major operation emits structured logs with `logger.info`, `logger.warning`, and `logger.exception`.
-   - The logger writes to rotating files in `logs/` and to stdout concurrently.
+├── app/
+│   ├── api.py
+│   ├── config.py
+│   ├── database.py
+│   ├── instagram.py
+│   ├── logger.py
+│   ├── analytics/
+│   │   ├── metrics.py
+│   │   ├── baseline.py
+│   │   ├── posting_time.py
+│   │   └── analyzer.py
+│   ├── comments/
+│   │   ├── service.py
+│   │   ├── discovery.py
+│   │   └── processor.py
+│   ├── insights/
+│   │   ├── collector.py
+│   │   └── catalog.py
+│   └── web/
+│       ├── server.py
+│       ├── service.py
+│       ├── templates/index.html
+│       └── static/
+│           ├── app.js
+│           └── style.css
+└── .github/
+    └── workflows/
+        └── instagram.yml
+~~~
 
 ---
 
-## 2. CORE DATA DICTIONARY & DATA CLASS SCHEMAS
+# 3. MODULE RESPONSIBILITIES
 
-This repository does not define Python dataclasses, Pydantic models, or typed ORM entities. Runtime data is represented as:
+## 3.1 main.py
 
-- SQLite rows from `sqlite3.Row`
-- plain Python `dict` objects returned by Instagram API responses
-- configuration dictionaries loaded from [config.py](config.py)
-- string templates in `DM_MESSAGES`
+CLI/presentation orchestration.
 
-### 2.1 SQLite Entity: `queue`
+Commands:
 
-| Field Name | Exact Python Type / Type Hint | Constraints | Short Functional Description |
-| --- | --- | --- | --- |
-| `comment_id` | `TEXT` | `PRIMARY KEY` | Unique Instagram comment identifier used as the queue key. |
-| `username` | `TEXT` | nullable | Username of the person who commented. |
-| `comment` | `TEXT` | nullable | Original comment body text as posted to the media thread. |
-| `timestamp` | `TEXT` | nullable | Timestamp converted to IST format using `utc_to_ist(...)`. |
-| `media_name` | `TEXT` | `NOT NULL` | Logical key identifying the configured media campaign, e.g. `dlf_midtown`. |
-| `media_id` | `TEXT` | `NOT NULL` | Instagram media object identifier for the relevant post. |
-| `status` | `TEXT` | `DEFAULT 'PENDING'` | Operational state: `PENDING`, `DM_SENT`, `DONE`, or `FAILED`. |
-| `retries` | `INTEGER` | `DEFAULT 0` | Number of processing attempts for the comment item. |
-| `created_at` | `DATETIME` | `DEFAULT CURRENT_TIMESTAMP` | Creation timestamp of the queue entry. |
+- discover
+- discover_all
+- process
+- media
+- insights
+- web
 
-Schema source:
-- [database.py](database.py)
+The discover command validates that the supplied Reel name is currently enabled/replyable.
 
-### 2.2 Configuration Dictionary: `MEDIA`
+The CLI delegates business work to the domain modules rather than implementing the workflows itself.
 
-This is the main runtime configuration map. It is defined as a dictionary keyed by media slug.
+## 3.2 app/analytics/
 
-| Field Name | Exact Python Type / Type Hint | Constraints | Short Functional Description |
-| --- | --- | --- | --- |
-| `MEDIA` | `dict[str, dict[str, str]]` | top-level key: media slug | Defines all monitored Instagram posts and their location metadata. |
-| `MEDIA[slug]["media_id"]` | `str` | required | Graph API media object ID. |
-| `MEDIA[slug]["location"]` | `str` | required | Human-readable place name for DM content generation. |
+Analytics foundation used as the deterministic input to future AI interpretation.
 
-Example entries:
-- `dlf_midtown`
-- `dear_donna`
-- `dhan_mill`
-- `nukkad`
-- `tehri_lake`
-- `kijiji1`
-- `kijiji2`
+### metrics.py
+Calculates derived rates and snapshot-to-snapshot growth.
 
-Source:
-- [config.py](config.py)
+### baseline.py
+Calculates account-level median/p25/p75 baselines from the latest available snapshot of each Reel.
 
-### 2.3 Message Template Collection: `DM_MESSAGES`
+### posting_time.py
+Extracts Asia/Kolkata posting-time features and performs age-normalized 24-hour comparisons.
 
-| Field Name | Exact Python Type / Type Hint | Constraints | Short Functional Description |
-| --- | --- | --- | --- |
-| `DM_MESSAGES` | `list[str]` | non-empty list | A pool of DM templates used to build a personalized location message. |
-| each template | `str` | must contain `{location}` placeholder | Template is formatted by `get_dm_message(media_name)`. |
+### analyzer.py
+Combines baseline, posting-time analysis, Reel metrics, and 24-hour snapshot selection into an AI-ready structured context.
 
-Source:
-- [config.py](config.py)
+The analytics layer does not call an LLM.
 
-### 2.4 Instagram Comment Payload Shape
+## 3.3 app/api.py
 
-The Graph API returns comment objects in `data` arrays. The project consumes a minimal subset.
+Single Graph API transport layer.
 
-| Field Name | Exact Python Type / Type Hint | Constraints | Short Functional Description |
-| --- | --- | --- | --- |
-| `id` | `str` | required | Comment identifier. |
-| `text` | `str | None` | optional | Raw text of the comment. |
-| `username` | `str | None` | optional | Username within nested `from` object. |
-| `from` | `dict[str, str]` | optional | Container object with `username` field. |
-| `parent_id` | `str | None` | optional | If present, comment is considered nested. |
-| `hidden` | `bool` | optional | Indicates hidden or filtered comment. |
-| `timestamp` | `str` | optional | ISO timestamp returned by the API. |
+Responsibilities:
 
-The code accesses these as:
-- `comment["id"]`
-- `comment.get("from", {}).get("username")`
-- `comment.get("text")`
-- `comment.get("parent_id")`
-- `comment.get("hidden", False)`
+- build HTTP requests
+- use a 30-second timeout
+- log method/path/status
+- parse JSON/text response bodies
+- perform comments, replies, DMs, media, media lookup, and Insights requests
 
-Source:
-- [instagram.py](instagram.py)
+All outbound Instagram HTTP should stay centralized here.
 
-### 2.5 Instagram Media Payload Shape
+## 3.4 app/instagram.py
 
-The `media` listing endpoint is used in the `media` command.
+Shared Instagram/media facade.
 
-| Field Name | Exact Python Type / Type Hint | Constraints | Short Functional Description |
-| --- | --- | --- | --- |
-| `id` | `str` | required | Media object identifier. |
-| `caption` | `str | None` | optional | Caption text associated with the media item. |
-| `comments_count` | `int` | optional | Count of comments on the media. |
+Exports:
 
-Source:
-- [instagram.py](instagram.py)
+- get_media
+- get_media_by_id
+- get_media_insights
 
-### 2.6 Runtime Error Payload: DM failure body
+Also defines the canonical 10-metric REEL_INSIGHT_METRICS list.
 
-| Field Name | Exact Python Type / Type Hint | Constraints | Short Functional Description |
-| --- | --- | --- | --- |
-| `status_code` | `int` | required | HTTP status returned by the Instagram API call. |
-| `message` | `str` | required | Parsed error message. |
-| `body` | `dict | str` | required | Raw JSON body or fallback text returned by the API. |
+## 3.5 app/config.py
 
-Used by `_dm_error(response)` in [instagram.py](instagram.py).
+Environment/static integration settings plus a configuration facade.
 
----
+Current values:
 
-## 3. API CONTRACT & SERVICE INTERFACES
+- ACCESS_TOKEN
+- BASE_URL
+- MY_USERNAME
+- IG_USER_ID
+- DM_MESSAGES
 
-The project exposes mostly module-level functions rather than classes. The public interfaces are function-based, imperative, and not wrapped by an object-oriented service interface.
+Replyable Reel settings are read from SQLite, not from a static MEDIA dictionary.
 
-### 3.1 [main.py](main.py)
+The module exposes:
 
-| Method Signature | Expected Inputs | Return Types | Exceptions Raised | Short Description |
-| --- | --- | --- | --- | --- |
-| `discover(media_name: str, fetch_count: int) -> None` | `media_name`: configured slug from `MEDIA`; `fetch_count`: number of comments to scan | `None` | Propagates exceptions from `get_comments()` and `enqueue()` | Scans a specific media item, filters comments, and enqueues eligible ones. |
-| `discover_all(fetch_count: int) -> None` | `fetch_count`: scan limit per media | `None` | Catches and logs per-media exceptions only | Iterates through all configured media and discovers pending comment candidates. |
-| `process(media_name: str | None = None, limit: int | None = None) -> None` | Optional media slug and optional row count | `None` | Propagates exceptions from DM and reply calls; caught per row to continue processing | Pulls queued comments, sends DMs, posts replies, and updates queue statuses. |
-| `main() -> None` | CLI arguments from `argparse` | `None` | Standard CLI parsing errors, runtime errors from workflow handlers | Parses subcommands and dispatches execution. |
+- get_reply_config_map()
+- get_replyable_media()
+- get_media_config()
+- save_reply_config()
 
-### 3.2 [instagram.py](instagram.py)
+The public reply message is behavior in comments/service.py.
 
-| Method Signature | Expected Inputs | Return Types | Exceptions Raised | Short Description |
-| --- | --- | --- | --- | --- |
-| `get_dm_message(media_name: str) -> str` | `media_name` must exist in `MEDIA` | `str` | `KeyError` if media slug is missing; `IndexError`/`ValueError` pathologically if template invalid | Selects a random DM template and injects the location string. |
-| `_response_body(response: requests.Response) -> dict | str` | An HTTP response object | `dict | str` | None explicitly; may fail only if `.json()` raises `ValueError` | Converts response body to JSON or plain text for error logging. |
-| `_error_message(response: requests.Response) -> str | dict | None` | HTTP response with error payload | `str | dict | None` | None explicitly; parser handles dict/list | Extracts the error message from Graph API payloads. |
-| `_safe_url(url: str) -> str` | URL containing the access token | `str` | None | Redacts `ACCESS_TOKEN` before logging the URL. |
-| `get_comments(media_id: str, limit: int) -> Iterator[dict]` | `media_id`: Instagram media ID; `limit`: max comment count | `Iterator[dict]` | `requests.HTTPError`, `requests.RequestException` | Paginated generator that yields comments from the Graph API. |
-| `should_reply(text: str) -> bool` | Raw comment string | `bool` | None | Checks text for keywords such as `location`, `link`, `where`, `map`, or `📍`. |
-| `reply_comment(comment_id: str) -> None` | Instagram comment ID to reply to | `None` | `requests.HTTPError`, `requests.RequestException` | Posts a public reply using the configured rotating list of canned responses. |
-| `_dm_error(response: requests.Response) -> dict[str, object]` | Response object from DM API call | `dict[str, object]` | None | Normalizes failure payload into a structured dict with status, message, and raw body. |
-| `send_dm(comment_id: str, media_name: str) -> tuple[bool, dict | None]` | comment ID and media slug | `tuple[bool, dict | None]` | None at the function boundary; API errors are handled internally and converted to structured errors | Sends a DM to the user using the configured media location template. |
-| `get_media() -> Iterator[dict]` | None | `Iterator[dict]` | `requests.HTTPError`, `requests.RequestException` | Lists media objects for the configured `IG_USER_ID` and yields them page by page. |
+## 3.6 app/database.py
 
-### 3.3 [database.py](database.py)
+SQLite persistence boundary.
 
-| Method Signature | Expected Inputs | Return Types | Exceptions Raised | Short Description |
-| --- | --- | --- | --- | --- |
-| `enqueue(comment: dict, media_name: str, media_id: str) -> bool` | `comment`: Instagram comment dict; `media_name`: slug; `media_id`: Graph ID | `bool` | None directly; DB or data shape issues may raise `KeyError`/`TypeError` | Inserts a comment into the queue if it is not already present, using `INSERT OR IGNORE`. |
-| `get_pending_comments(media_name: str | None = None, limit: int | None = None) -> list[sqlite3.Row]` | Optional media filter and optional row limit | `list[sqlite3.Row]` | SQLite errors | Fetches rows in `PENDING`, `DM_SENT`, or `FAILED` states ordered by timestamp. |
-| `mark_dm_sent(comment_id: str) -> None` | comment identifier | `None` | SQLite errors | Sets a queue row status to `DM_SENT` after DM success. |
-| `mark_done(comment_id: str) -> None` | comment identifier | `None` | SQLite errors | Sets a queue row status to `DONE`. |
-| `mark_failed(comment_id: str) -> None` | comment identifier | `None` | SQLite errors | Increments `retries` and sets `FAILED`/`PENDING` based on retry threshold. |
-| `queue_size(status: str = "PENDING") -> int` | status string | `int` | SQLite errors | Returns the number of rows in a given queue state. |
-| `clear_done() -> None` | None | `None` | SQLite errors | Logs completed rows and removes them from `queue`. |
-| `reset_failed() -> None` | None | `None` | SQLite errors | Resets all `FAILED` entries to `PENDING` with zero retries. |
-| `utc_to_ist(timestamp: str | None) -> str | None` | ISO 8601 string | `ValueError` if timestamp format is malformed; `TypeError` if `timestamp` is not string-like | Converts UTC timestamp to Asia/Kolkata string format for DB readability. |
+Owns:
 
-### 3.4 [logger.py](logger.py)
+- schema initialization
+- schema migration
+- thread-local SQLite connections
+- reply_config CRUD used by the application
+- pending queue inserts and reads
+- DM_SENT state
+- retry counters
+- completed-row deletion
 
-This module does not expose functions; it exposes a shared singleton:
+No ORM or repository class layer is used.
 
-- `logger: logging.Logger`
+## 3.7 app/comments/service.py
 
-Contract:
-- Logging emits to:
-  - `logs/instagram.log` via `TimedRotatingFileHandler`
-  - stdout via `logging.StreamHandler`
-- `logger` is configured once at import time and reused globally.
+Comment business helpers.
 
----
+Owns:
 
-## 4. DEPENDENCIES & ENVIRONMENT SPECIFICATIONS
+- DM message generation
+- keyword eligibility
+- DM dispatch
+- public reply dispatch
 
-### Production Dependencies
+Keywords:
 
-Exact package set from [requirements.txt](requirements.txt):
+~~~text
+location
+loc
+link
+map
+maps
+which place
+where
+details
+📍
+~~~
 
-| Package | Version | Purpose |
-| --- | --- | --- |
-| `requests` | `2.34.2` | Primary HTTP client for Meta Graph API calls and pagination. |
-| `urllib3` | `2.7.0` | Underlying HTTP stack used by `requests`. |
-| `charset-normalizer` | `3.5.1` | Character encoding detection for HTTP responses. |
-| `certifi` | `2026.7.22` | CA bundle for TLS verification during outbound API requests. |
-| `idna` | `3.19` | Internationalized domain handling for URL encoding. |
-| `python-dotenv` | `1.2.3` | Loads environment variables from `.env` into process environment. |
+Public reply:
 
-Critical runtime configuration:
-- `.env` provides `ACCESS_TOKEN`
-- [config.py](config.py) calls `load_dotenv()`
-- `BASE_URL = "https://graph.instagram.com/v25.0"`
+~~~text
+Please check DM
+~~~
 
-### Development / Tooling Stack
+## 3.8 app/comments/discovery.py
 
-The repository does not declare a formal dev toolchain such as:
+Comment discovery and queueing.
 
-- `ruff`
-- `black`
-- `mypy`
-- `pytest`
-- `poetry`
-- `uv`
+Flow:
 
-What is actually present is:
+1. resolve enabled Reel configuration
+2. fetch media metadata
+3. fetch paginated comments
+4. identify existing bot replies using parent IDs and reply markers
+5. skip self-authored comments
+6. skip hidden comments
+7. skip nested replies
+8. apply keyword eligibility
+9. enqueue eligible comments with INSERT OR IGNORE
+10. return discovery statistics
 
-- Python interpreter runtime in a local virtual environment (`.venv/` or `venv/`)
-- `pip` installation via [requirements.txt](requirements.txt)
-- CLI execution through `python main.py ...`
-- SQLite CLI interrogation via GitHub Action and shell commands in [.github/workflows/instagram.yml](.github/workflows/instagram.yml)
-- GitHub Actions self-hosted runner:
-  - `runs-on: [self-hosted, ARM64]`
-  - command dispatches for `media`, `discover`, `discover_all`, and `process`
+discover_all loops over all enabled Reels and continues after per-Reel failures.
 
-This means the project is a manually managed Python automation script, not a fully standardized dev environment.
+## 3.9 app/comments/processor.py
 
----
+Durable queue processor.
 
-## 5. IMPLEMENTATION DESIGN PRINCIPLES & STYLE CONVENTIONS
+Flow:
 
-### Coding Standards
+~~~text
+PENDING
+   |
+   | send_dm success
+   v
+DM_SENT
+   |
+   | public reply success
+   v
+DELETE
+~~~
 
-The repository follows a practical, minimalistic Python style rather than a formal enterprise framework standard.
+Failure paths:
 
-Observed conventions:
-- snake_case for function names and variables
-- UPPERCASE constant names for configuration and static values
-- imperative, top-to-bottom workflow logic
-- no classes for domain modeling
-- no dataclasses
-- no Pydantic models
-- minimal type hints only on major functions, not enforced globally
-- direct dictionary access for API payloads rather than Pydantic validation
-- no explicit package/service layer abstraction beyond module boundaries
+~~~text
+PENDING -> retry counter increment
+DM_SENT -> retry counter increment
+~~~
 
-Important contract reality:
-- There is no enforced static typing environment.
-- There is no dedicated linter configuration.
-- There is no formal test suite in the repo.
-- There are no custom exception classes.
+The processor sleeps for a random 5–8 seconds between comments.
 
-### State & Error Handling Strategy
+## 3.10 app/insights/catalog.py
 
-State management:
-- Persistent state is stored in SQLite in [database.py](database.py)
-- Queue status transitions are the primary system state machine:
-  - `PENDING`
-  - `DM_SENT`
-  - `DONE`
-  - `FAILED`
-- `mark_failed` is the retry/failure gatekeeper and enforces escalation logic:
-  - increment retries
-  - if `retries + 1 >= 3`, mark `FAILED`
-  - otherwise keep row in `PENDING` unless it was already `DM_SENT`
+Reel catalog discovery.
 
-Error handling:
-- API-level errors are captured locally and logged with `logger.exception(...)`
-- `requests.HTTPError` is explicitly caught in:
-  - `get_comments`
-  - `reply_comment`
-- DM failures are not raised as exceptions; they are converted into a structured result:
-  - `send_dm(...) -> (False, error_dict)`
-- generic `Exception` is caught in orchestration loops in [main.py](main.py) to prevent a single failed item from killing the entire batch
-- `logger.exception` is used to preserve traceback context
+refresh_reel_catalog():
 
-Configuration and security:
-- `ACCESS_TOKEN` is loaded from `.env` via `python-dotenv`
-- redaction logic exists in `_safe_url(...)` to avoid leaking secrets in logs
+- reads existing insights.json
+- uses existing media IDs as stop IDs
+- pages through Instagram media
+- ignores non-Reels
+- adds new Reels
+- updates changed Reel metadata
+- records catalog_last_updated
+- saves JSON
 
-Operational patterns:
-- randomness is intentionally introduced using `random.choice(...)` and `random.uniform(...)` to reduce predictable behavior
-- slow down between queued records with `time.sleep(delay)`
-- run loop is sequential and single-threaded, which makes the system easy to reason about but not horizontally scalable
+It does not collect Insights for every Reel.
+
+## 3.11 app/insights/collector.py
+
+Insight snapshot collection.
+
+collect_reel_insights(media_id=None):
+
+- selects all media or one media
+- ignores non-Reels
+- requests the canonical 10 metrics
+- normalizes special metric names
+- appends timestamped snapshots
+- saves insights.json
+
+Snapshot identity is collected_at.
+
+## 3.12 app/web/service.py
+
+Dashboard read model / formatting layer.
+
+Owns:
+
+- loading insights.json
+- selecting the latest snapshot
+- formatting Reel objects
+- deriving engagement_rate
+- converting watch time values
+- building dashboard summary
+- health response
+
+## 3.13 app/web/server.py
+
+FastAPI presentation/API layer.
+
+Owns:
+
+- dashboard HTML route
+- API routes
+- comment limit validation
+- configuration request validation
+- mapping UI actions to domain functions
+- merging catalog metadata with SQLite reply configuration
+- exposing pending queue counts
+
+FastAPI metadata:
+
+~~~text
+title   = Instagram Automation
+version = 1.0.0
+docs    = /docs
+redoc   = disabled
+~~~
 
 ---
 
-## Architectural Summary for AI Code Generators
+# 4. DATA OWNERSHIP
 
-This project should be treated as:
+~~~text
+ACCESS_TOKEN
+    -> environment
 
-- a single-process automation script,
-- with SQLite as the durable queue,
-- Instagram Graph API as the external integration boundary,
-- and `main.py` as the orchestrator.
+Replyable Reel selection
+    -> SQLite reply_config
 
-The minimal high-value contract for downstream generators is:
+Pending/uncompleted comments
+    -> SQLite queue
 
-1. preserve the `queue` state machine semantics,
-2. keep `instagram.py` as the HTTP adapter layer,
-3. keep persistence logic out of `main.py`,
-4. retain the current logging conventions,
-5. avoid introducing dataclasses or Pydantic unless the project is explicitly refactored to a typed domain model.
+Reel catalog and historical Insights
+    -> insights.json
+
+media command export
+    -> media.json
+
+runtime diagnostics
+    -> logs/
+~~~
+
+The project deliberately avoids using:
+
+- media.json as configuration
+- insights.json as the comment queue
+- reply_config as Reel analytics history
+- queue as permanent reply history
+
+---
+
+# 5. SQLITE SCHEMA
+
+## 5.1 queue
+
+~~~sql
+CREATE TABLE IF NOT EXISTS queue(
+    comment_id TEXT PRIMARY KEY,
+    username TEXT,
+    comment TEXT,
+    timestamp TEXT,
+    media_name TEXT NOT NULL,
+    media_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'PENDING',
+    retries INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+~~~
+
+Index:
+
+~~~sql
+CREATE INDEX IF NOT EXISTS idx_queue_media_status
+ON queue(media_id, status);
+~~~
+
+Active states:
+
+- PENDING
+- DM_SENT
+
+Completed comments are deleted.
+
+Legacy schema migration:
+
+~~~sql
+DROP TABLE IF EXISTS comment_media_stats;
+DROP TABLE IF EXISTS app_state;
+
+DELETE FROM queue
+WHERE status = 'DONE';
+
+UPDATE queue
+SET status = 'PENDING'
+WHERE status = 'FAILED';
+~~~
+
+The current model therefore represents unfinished operational work, not reply history.
+
+## 5.2 reply_config
+
+~~~sql
+CREATE TABLE IF NOT EXISTS reply_config(
+    media_id TEXT PRIMARY KEY,
+    media_name TEXT NOT NULL,
+    location TEXT NOT NULL DEFAULT '',
+    enabled INTEGER NOT NULL DEFAULT 0,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+~~~
+
+---
+
+# 6. SQLITE CONCURRENCY
+
+FastAPI synchronous routes may execute on worker threads.
+
+database.py uses threading.local() so each worker thread gets its own SQLite connection/cursor.
+
+Settings:
+
+~~~text
+SQLite timeout: 30 seconds
+PRAGMA busy_timeout: 30000
+~~~
+
+This avoids unsafe cross-thread sharing of a single SQLite connection in the current single-process service.
+
+---
+
+# 7. COMMENT DISCOVERY ARCHITECTURE
+
+## One Reel
+
+~~~text
+SQLite reply_config
+       |
+       v
+media_name -> media_id/location
+       |
+       v
+GET media metadata
+       |
+       v
+GET comments + pagination
+       |
+       v
+first pass:
+find bot reply parent IDs
+       |
+       v
+second pass:
+self? hidden? nested? keyword?
+       |
+       v
+already replied?
+       |
+       v
+INSERT OR IGNORE
+       |
+       v
+SQLite queue
+~~~
+
+The Instagram comment ID is the idempotency key.
+
+## All replyable Reels
+
+~~~text
+get_replyable_media()
+      |
+      +--> discover(Reel A, limit)
+      +--> discover(Reel B, limit)
+      +--> discover(Reel C, limit)
+      ...
+~~~
+
+A failed Reel is logged and does not stop the remaining Reels.
+
+---
+
+# 8. COMMENT PROCESSING ARCHITECTURE
+
+~~~text
+get_pending_comments()
+        |
+        v
+for each row
+        |
+        +---- PENDING ----> send_dm()
+        |                      |
+        |                      +-- failure --> keep row + retries
+        |                      |
+        |                      +-- success -> mark DM_SENT
+        |
+        +---- DM_SENT -----------------------+
+                                             |
+                                             v
+                                      reply_comment()
+                                             |
+                                    +--------+--------+
+                                    |                 |
+                                 success           failure
+                                    |                 |
+                                    v                 v
+                               delete row       keep row + retries
+~~~
+
+The DM is never resent for a row already in DM_SENT.
+
+---
+
+# 9. COMMENT ELIGIBILITY / DUPLICATE DETECTION
+
+Keywords are checked case-insensitively:
+
+~~~text
+location
+loc
+link
+map
+maps
+which place
+where
+details
+📍
+~~~
+
+Filtered out:
+
+- own comments
+- hidden comments
+- nested comments
+
+Bot-reply markers:
+
+~~~text
+please check dm
+please check your dm
+shared the location in dm
+i've sent you the location in dm
+location sent! check your dm
+sent you the location
+~~~
+
+The duplicate detector performs two passes over the returned API page so ordering does not matter.
+
+No local replied-comment history is stored.
+
+---
+
+# 10. INSTAGRAM GRAPH API
+
+Base URL:
+
+~~~text
+https://graph.instagram.com/v25.0
+~~~
+
+Transport timeout:
+
+~~~text
+30 seconds
+~~~
+
+## Comments
+
+~~~http
+GET /{media_id}/comments
+~~~
+
+Fields:
+
+~~~text
+id,text,username,from,parent_id,hidden,timestamp
+~~~
+
+Pagination follows paging.next.
+
+## Public reply
+
+~~~http
+POST /{comment_id}/replies
+~~~
+
+Data:
+
+~~~text
+message=Please check DM
+access_token=<ACCESS_TOKEN>
+~~~
+
+## Private reply / DM
+
+~~~http
+POST /{IG_USER_ID}/messages
+~~~
+
+Headers:
+
+~~~text
+Authorization: Bearer <ACCESS_TOKEN>
+Content-Type: application/json
+~~~
+
+Body:
+
+~~~json
+{
+  "recipient": {
+    "comment_id": "<COMMENT_ID>"
+  },
+  "message": {
+    "text": "<generated DM>"
+  }
+}
+~~~
+
+A HTTP 200 response is a successful DM.
+
+## Media list
+
+~~~http
+GET /{IG_USER_ID}/media
+~~~
+
+Fields:
+
+~~~text
+id,caption,comments_count,media_type,media_product_type,timestamp
+~~~
+
+## Media lookup
+
+~~~http
+GET /{media_id}
+~~~
+
+Fields:
+
+~~~text
+id,caption,comments_count,media_type,media_product_type,timestamp
+~~~
+
+## Insights
+
+~~~http
+GET /{media_id}/insights
+~~~
+
+Metrics:
+
+~~~text
+views
+reach
+likes
+comments
+shares
+saved
+total_interactions
+ig_reels_avg_watch_time
+ig_reels_video_view_total_time
+reels_skip_rate
+~~~
+
+---
+
+# 12. FASTAPI API CONTRACT
+
+| Method | Path | Domain call |
+|---|---|---|
+| GET | /api/health | health_check() |
+| GET | /api/config | SQLite config + catalog merge |
+| POST | /api/config | save_reply_config() |
+| GET | /api/dashboard | get_dashboard_summary() |
+| GET | /api/reels | get_reels() |
+| POST | /api/reels/refresh | refresh_reel_catalog() |
+| GET | /api/reels/{media_id} | get_reel() |
+| POST | /api/reels/{media_id}/refresh | collect_reel_insights(media_id) |
+| GET | /api/analytics | build_account_analysis_context() |
+| GET | /api/analytics/posting-time | build_account_analysis_context()["posting_time"] |
+| GET | /api/analytics/reels/{media_id} | build_reel_analysis_for_media(media_id) |
+| GET | /api/comments | _comment_dashboard() |
+| POST | /api/comments/refresh | discover_all(limit) |
+| POST | /api/comments/refresh/{media_id} | discover(media_name, limit) |
+| POST | /api/comments/reply | process() |
+| POST | /api/comments/reply/{media_id} | process(media_name) |
+
+Comment limit:
+
+~~~text
+minimum = 1
+maximum = 500
+default = 100
+~~~
+
+Critical behavior:
+
+~~~text
+GET /api/comments
+    -> DB/read model only
+    -> no Instagram discovery
+~~~
+
+---
+
+# 13. WEB UI DATA FLOW
+
+## Insights tab
+
+Tab open:
+
+~~~text
+GET /api/dashboard
+GET /api/reels
+~~~
+
+Actions:
+
+~~~text
+Refresh reels
+    -> POST /api/reels/refresh
+
+Reel Refresh
+    -> POST /api/reels/{media_id}/refresh
+
+Reel click
+    -> GET /api/reels/{media_id}
+~~~
+
+## Comments tab
+
+Tab open:
+
+~~~text
+GET /api/comments
+GET /api/config
+~~~
+
+No discovery.
+
+Actions:
+
+~~~text
+Refresh
+    -> POST /api/comments/refresh
+
+Per-Reel Refresh
+    -> POST /api/comments/refresh/{media_id}
+
+Reply All
+    -> POST /api/comments/reply
+
+Per-Reel Reply
+    -> POST /api/comments/reply/{media_id}
+~~~
+
+## Config tab
+
+Tab open:
+
+~~~text
+GET /api/config
+~~~
+
+Save:
+
+~~~text
+POST /api/config
+~~~
+
+---
+
+# 14. UI LOADING MODEL
+
+Long-running user actions use a shared button-loader helper.
+
+Covered actions:
+
+- Refresh reels
+- single-Reel Insights Refresh
+- Comments Refresh
+- single-Reel Comments Refresh
+- Reply All
+- single-Reel Reply
+- Save changes
+
+While active:
+
+1. original button content is stored
+2. button is disabled
+3. spinner is displayed
+4. action completes or fails
+5. original button content is restored in finally
+6. button is re-enabled
+
+Comments discovery also displays a table-level loader.
+
+---
+
+# 15. INSIGHTS DATA MODEL
+
+Stored Reel fields:
+
+~~~text
+media_id
+caption
+media_type
+media_product_type
+timestamp
+comments_count
+snapshots
+~~~
+
+Snapshot:
+
+~~~text
+collected_at
+metrics
+~~~
+
+Normalized special metric keys:
+
+~~~text
+ig_reels_avg_watch_time
+    -> avg_watch_time_ms
+
+ig_reels_video_view_total_time
+    -> total_watch_time_ms
+
+reels_skip_rate
+    -> skip_rate
+~~~
+
+Derived dashboard values:
+
+~~~text
+avg_watch_time_seconds
+total_watch_time_hours
+engagement_rate
+~~~
+
+---
+
+# 16. JSON PERSISTENCE
+
+insights.json is read and written by the Insight modules.
+
+Snapshot writes are performed using a temporary file:
+
+~~~text
+insights.json.tmp
+      |
+      v
+os.replace(...)
+      |
+      v
+insights.json
+~~~
+
+Snapshots are deduplicated by collected_at.
+
+---
+
+# 17. LOGGING ARCHITECTURE
+
+app/logger.py exports one shared logger.
+
+~~~text
+shared logger
+   ├── TimedRotatingFileHandler -> logs/instagram.log
+   └── StreamHandler            -> stdout
+~~~
+
+Important logged context:
+
+- media ID/name
+- comment ID
+- username
+- API page
+- HTTP status
+- discovery counts
+- processing progress
+- retry counts
+- summaries
+- web actions
+
+---
+
+# 18. GITHUB ACTIONS
+
+Workflow:
+
+~~~text
+.github/workflows/instagram.yml
+~~~
+
+Trigger:
+
+~~~text
+workflow_dispatch
+~~~
+
+Runner:
+
+~~~text
+self-hosted, ARM64
+~~~
+
+Supported commands:
+
+- media
+- discover
+- discover_all
+- process
+
+Current execution flow:
+
+~~~text
+workflow_dispatch
+      |
+      v
+git pull --ff-only origin main
+      |
+      v
+activate .venv
+      |
+      v
+python main.py <command>
+      |
+      v
+sqlite3 instagram.db
+      |
+      v
+print database status
+~~~
+
+The workflow currently pulls main, so feature-branch changes are not deployed by this Action until merged into main.
+
+The workflow also contains a manual media choice list. Runtime CLI discovery uses the SQLite-backed reply configuration instead.
+
+---
+
+# 19. SECURITY / OPERATIONS
+
+Credentials:
+
+- ACCESS_TOKEN is environment-provided.
+- Do not commit the token.
+
+Dashboard:
+
+- no application-level authentication middleware exists
+- localhost is the default binding
+- network exposure should be placed behind an appropriate access-control boundary
+
+Operational limits:
+
+| Area | Value |
+|---|---|
+| Graph API request timeout | 30 seconds |
+| Comment scan maximum | 500 |
+| Default comment scan | 100 |
+| Processing delay | 5–8 seconds |
+| FastAPI default host | 127.0.0.1 |
+| FastAPI default port | 8000 |
+| Graph API version | v25.0 |
+
+External Meta constraints such as permissions, token state, API restrictions, rate limits, and messaging availability remain outside the application's control.
+
+---
+
+# 20. ARCHITECTURAL DECISIONS
+
+## Decision: SQLite is the queue boundary
+
+Discovery and processing are separate operations. SQLite provides durable handoff between them.
+
+## Decision: no local replied-comment history
+
+Successful queue rows are deleted. Existing Instagram-side bot replies are used for duplicate detection during discovery.
+
+## Decision: Reel reply configuration is SQLite-backed
+
+The old static Reel map is not the source of truth. Reels are discovered through the Insight/catalog path and explicitly enabled/configured in SQLite.
+
+## Decision: public reply is application behavior
+
+The current public reply text is "Please check DM". It is not part of reply_config.
+
+## Decision: JSON is used for Insight history
+
+Insight history is small, local, append-style snapshot data, so JSON is used instead of adding another relational model.
+
+## Decision: thin web layer
+
+FastAPI routes map HTTP actions onto existing domain functions rather than implementing separate business logic.
+
+---
+
+# 21. MAINTENANCE CONTRACTS
+
+When modifying the repository:
+
+1. Keep Graph API transport in app/api.py.
+2. Keep media/Insight facade functions in app/instagram.py.
+3. Keep comment eligibility in app/comments/service.py.
+4. Keep discovery in app/comments/discovery.py.
+5. Keep queue processing in app/comments/processor.py.
+6. Keep queue/config persistence in app/database.py.
+7. Keep Insight persistence in app/insights/.
+8. Keep HTTP route wiring in app/web/server.py.
+9. Keep dashboard formatting in app/web/service.py.
+10. Keep environment/static integration settings in app/config.py.
+11. Keep README.md and this file synchronized when behavior or API contracts change.
+12. Avoid introducing classes/ORM abstractions without a concrete requirement.
+
+---
+
+# 22. CURRENT ARCHITECTURAL SUMMARY
+
+~~~text
+Lightweight layered automation service
++
+Instagram Graph API transport layer
++
+SQLite durable pending-work queue
++
+SQLite-backed Reel reply configuration
++
+JSON-backed Reel catalog and Insight history
++
+FastAPI dashboard
++
+CLI orchestration
++
+GitHub Actions operational entrypoint
+~~~
+
+The core separation is:
+
+~~~text
+Discovery
+   -> finds eligible work
+
+Persistence
+   -> remembers unfinished work
+
+Processing
+   -> performs external side effects
+
+Insights
+   -> stores Reel analytics history
+
+Web/API
+   -> exposes read models and controls
+
+Configuration
+   -> defines which Reels are replyable
+
+Logging
+   -> provides operational visibility
+~~~
 
 
 ---
 
-## 7. AI ANALYTICS MODULE
+## 23. AI ANALYTICS MODULE
 
 The AI layer is intentionally provider-agnostic. Analytics and prompt code depend on the `LLM` interface rather than on Ollama or any future vendor SDK.
 
