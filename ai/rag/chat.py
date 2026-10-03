@@ -1,7 +1,7 @@
 from typing import Any
 
-from ai.llm import LLM, get_llm
-from ai.prompts.chat import CHAT_SYSTEM_PROMPT, build_chat_prompt
+from app.ai.llm import LLM, get_llm
+from app.ai.prompts.chat import CHAT_SYSTEM_PROMPT, build_chat_prompt
 
 
 class ChatAnalyzer:
