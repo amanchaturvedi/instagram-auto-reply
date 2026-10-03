@@ -1,3 +1,68 @@
+const aiChatMessages = document.getElementById("ai-chat-messages");
+const aiChatInput = document.getElementById("ai-chat-input");
+const aiChatSendBtn = document.getElementById("ai-chat-send-btn");
+const aiChatClearBtn = document.getElementById("ai-chat-clear-btn");
+const aiChatStatus = document.getElementById("ai-chat-status");
+let aiChatHistory = [];
+
+function renderChatMessage(role, content) {
+    if (aiChatMessages.querySelector(".chat-empty")) {
+        aiChatMessages.innerHTML = "";
+    }
+    const message = document.createElement("div");
+    message.className = "chat-message " + (role === "user" ? "user" : "assistant");
+    message.innerHTML =
+        '<div class="chat-role">' + (role === "user" ? "You" : "AI") + '</div>' +
+        '<div class="chat-content">' + escapeHtml(content) + '</div>';
+    aiChatMessages.appendChild(message);
+    aiChatMessages.scrollTop = aiChatMessages.scrollHeight;
+}
+
+function clearAiChat() {
+    aiChatHistory = [];
+    aiChatMessages.innerHTML =
+        '<div class="chat-empty">Ask something like “Why are my recent Reels underperforming?” or “Which of my Reels had the strongest engagement?”</div>';
+    aiChatStatus.textContent = "Ready";
+}
+
+async function sendAiChat() {
+    const message = aiChatInput.value.trim();
+    if (!message || aiChatSendBtn.disabled) return;
+
+    renderChatMessage("user", message);
+    aiChatHistory.push({ role: "user", content: message });
+    aiChatInput.value = "";
+    setButtonLoading(aiChatSendBtn, true, "Thinking…");
+    aiChatStatus.textContent = "Retrieving relevant Reels and analyzing…";
+
+    try {
+        const response = await fetch("/api/ai/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                message: message,
+                history: aiChatHistory.slice(-8),
+            }),
+        });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.detail || "AI chat failed");
+
+        renderChatMessage("assistant", body.analysis || "No answer returned.");
+        aiChatHistory.push({ role: "assistant", content: body.analysis || "" });
+
+        const retrieved = body.retrieved_reels ? body.retrieved_reels.length : 0;
+        aiChatStatus.textContent =
+            "Answered · " + formatNumber(retrieved) + " historical Reels retrieved";
+        setStatus("AI chat complete");
+    } catch (error) {
+        renderChatMessage("assistant", "Error: " + error.message);
+        aiChatStatus.textContent = "Chat failed";
+        setStatus(error.message);
+    } finally {
+        setButtonLoading(aiChatSendBtn, false);
+    }
+}
+
 const aiReelSelect = document.getElementById("ai-reel-select");
 const aiReelBtn = document.getElementById("ai-reel-btn");
 const aiAccountBtn = document.getElementById("ai-account-btn");
@@ -793,6 +858,15 @@ aiReelBtn.addEventListener("click", function() {
         return;
     }
     runAi("/api/ai/reels/" + encodeURIComponent(mediaId), aiReelBtn, "Analyzing…");
+});
+
+aiChatSendBtn.addEventListener("click", sendAiChat);
+aiChatClearBtn.addEventListener("click", clearAiChat);
+aiChatInput.addEventListener("keydown", function(event) {
+    if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        sendAiChat();
+    }
 });
 
 closeReelModal.addEventListener("click", function() {
