@@ -1,8 +1,10 @@
+import logging
+import time
 import requests
 from urllib.parse import urlsplit
 
 from .config import ACCESS_TOKEN, BASE_URL, IG_USER_ID
-from .logger import logger
+from .logger import logger, OUT_ACCESS_LOGGER
 
 REQUEST_TIMEOUT = 30
 
@@ -24,21 +26,37 @@ def _error_message(response):
 
 
 def _request(method, url, *, params=None, data=None, json=None, headers=None):
-    response = requests.request(
-        method,
-        url,
-        params=params,
-        data=data,
-        json=json,
-        headers=headers,
-        timeout=REQUEST_TIMEOUT,
-    )
+    started_at = time.perf_counter()
+    method_upper = method.upper()
+    path = urlsplit(url).path
 
-    logger.debug(
-        "Graph API request method=%s path=%s status=%s",
-        method.upper(),
-        urlsplit(url).path,
+    try:
+        response = requests.request(
+            method,
+            url,
+            params=params,
+            data=data,
+            json=json,
+            headers=headers,
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        duration_ms = round((time.perf_counter() - started_at) * 1000, 1)
+        OUT_ACCESS_LOGGER.exception(
+            "OUTBOUND request method=%s path=%s status=error duration_ms=%s",
+            method_upper,
+            path,
+            duration_ms,
+        )
+        raise
+
+    duration_ms = round((time.perf_counter() - started_at) * 1000, 1)
+    OUT_ACCESS_LOGGER.info(
+        "OUTBOUND request method=%s path=%s status=%s duration_ms=%s",
+        method_upper,
+        path,
         response.status_code,
+        duration_ms,
     )
 
     return response
