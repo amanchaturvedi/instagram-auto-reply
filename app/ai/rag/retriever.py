@@ -26,7 +26,7 @@ def _recent_limit(query, default_limit):
     query_lower = str(query or "").lower()
 
     match = re.search(
-        r"\b(?:last|latest|newest|most recent)\\s+(?:(\\d+)\\s+|(one|two|three|four|five|six|seven|eight|nine|ten)\\s+)?(?:reels?|posts?)\b",
+        r"\b(?:last|latest|newest|most recent)\s+(?:(\d+)\s+|(one|two|three|four|five|six|seven|eight|nine|ten)\s+)?(?:reels?|posts?)\b",
         query_lower,
     )
     if match:
