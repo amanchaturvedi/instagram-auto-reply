@@ -15,7 +15,7 @@ Rules:
 - The dataset contains Reels.
 - Clearly distinguish observed facts from interpretation and hypotheses.
 - When mentioning a retrieved Reel, include its media_id so the creator can identify it.
-- Keep answers practical and concise.
+- Keep answers practical and concise.\n- Return ONLY valid JSON, with no Markdown fences.\n- Use exactly this shape: {"summary":"...","observations":[{"title":"...","detail":"..."}],"hypotheses":[{"title":"...","detail":"..."}],"experiments":[{"test":"...","why":"...","metric":"..."}]}\n- Keep each item concise. If a section has no supported items, return an empty array.
 """
 
 
