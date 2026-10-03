@@ -15,7 +15,8 @@ Rules:
 - The dataset contains Reels.
 - Clearly distinguish observed facts from interpretation and hypotheses.
 - When mentioning a retrieved Reel, include its media_id so the creator can identify it.
-- Keep answers practical and concise.\n- Return ONLY valid JSON, with no Markdown fences.\n- Use exactly this shape: {"summary":"...","observations":[{"title":"...","detail":"..."}],"hypotheses":[{"title":"...","detail":"..."}],"experiments":[{"test":"...","why":"...","metric":"..."}]}\n- Keep each item concise. If a section has no supported items, return an empty array.
+- Keep answers practical and concise.
+- Return ONLY valid JSON, with no Markdown fences.\n- Use exactly this shape: {"summary":"...","observations":[{"title":"...","detail":"..."}],"hypotheses":[{"title":"...","detail":"..."}],"experiments":[{"test":"...","why":"...","metric":"..."}]}\n- Keep each item concise. If a section has no supported items, return an empty array.
 """
 
 
@@ -35,6 +36,5 @@ RETRIEVED HISTORICAL REELS:
 RECENT CONVERSATION:
 {recent_history}
 
-Answer directly. Use headings or bullets when useful.
-For recommendations, connect each recommendation to evidence or explicitly label it as an experiment/hypothesis.
+Return the JSON object only. Put the direct answer in "summary". Put evidence-backed findings in "observations", uncertain explanations in "hypotheses", and actionable tests in "experiments". For recommendations, connect each experiment to evidence or explicitly label it as a hypothesis.
 """
