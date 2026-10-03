@@ -214,14 +214,14 @@ python main.py insights
 python main.py insights <media_id>
 ~~~
 
-## Build deterministic analytics for AI analysis
+## Build deterministic analytics
 
 ~~~bash
 python main.py analytics
 python main.py analytics <media_id>
 ~~~
 
-This command does not call Instagram. It reads insights.json and produces the structured deterministic context used by the future AI layer.
+This command does not call Instagram. It reads insights.json and produces structured deterministic performance context.
 
 The context includes:
 
