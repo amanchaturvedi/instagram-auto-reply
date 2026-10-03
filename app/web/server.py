@@ -19,8 +19,8 @@ from app.config import (
     save_reply_config,
 )
 from app.database import get_pending_count_by_media
-from ai.analyzers import AccountAnalyzer, ReelAnalyzer
-from ai.rag import ChatAnalyzer, retrieve_reels
+from app.ai.analyzers import AccountAnalyzer, ReelAnalyzer
+from app.ai.rag import ChatAnalyzer, retrieve_reels
 from app.insights.catalog import refresh_reel_catalog
 from app.insights.collector import collect_reel_insights
 from app.logger import ACCESS_LOGGER, format_log_body, logger
