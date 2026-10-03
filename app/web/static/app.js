@@ -131,7 +131,8 @@ function aiResponseToHistory(data) {
         );
     });
 
-    return parts.join("\n");
+    return parts.join("
+");
 }
 
 function renderRetrievedReels(reels) {
@@ -188,7 +189,12 @@ async function sendAiChat() {
         if (!response.ok) throw new Error(body.detail || "AI chat failed");
 
         renderChatMessage("assistant", aiResponseToHistory(body.analysis), body.analysis);
-        const retrievedHtml = renderRetrievedReels(body.retrieved_reels || []);\n        if (retrievedHtml) {\n            const lastMessage = aiChatMessages.lastElementChild;\n            if (lastMessage) lastMessage.insertAdjacentHTML("beforeend", retrievedHtml);\n        }\n        aiChatHistory.push({ role: "assistant", content: aiResponseToHistory(body.analysis) });
+        const retrievedHtml = renderRetrievedReels(body.retrieved_reels || []);
+        if (retrievedHtml) {
+            const lastMessage = aiChatMessages.lastElementChild;
+            if (lastMessage) lastMessage.insertAdjacentHTML("beforeend", retrievedHtml);
+        }
+        aiChatHistory.push({ role: "assistant", content: aiResponseToHistory(body.analysis) });
 
         const retrieved = body.retrieved_reels ? body.retrieved_reels.length : 0;
         aiChatStatus.textContent =
