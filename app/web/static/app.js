@@ -131,8 +131,7 @@ function aiResponseToHistory(data) {
         );
     });
 
-    return parts.join("
-");
+    return parts.join("\n");
 }
 
 function renderRetrievedReels(reels) {
