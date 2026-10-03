@@ -88,7 +88,7 @@ def main():
 
     analytics_parser = subparsers.add_parser(
         "analytics",
-        help="Build deterministic analytics context for AI analysis",
+        help="Build deterministic analytics context",
     )
     analytics_parser.add_argument(
         "media_id",
