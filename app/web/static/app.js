@@ -227,7 +227,9 @@ function escapeHtml(value) {
 }
 
 function setStatus(message) {
-    statusEl.textContent = message;
+    if (statusEl) {
+        statusEl.textContent = message;
+    }
 }
 
 function setButtonLoading(button, loading, label) {
