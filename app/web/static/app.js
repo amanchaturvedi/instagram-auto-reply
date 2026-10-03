@@ -1,3 +1,50 @@
+const aiReelSelect = document.getElementById("ai-reel-select");
+const aiReelBtn = document.getElementById("ai-reel-btn");
+const aiAccountBtn = document.getElementById("ai-account-btn");
+const aiOutput = document.getElementById("ai-output");
+const aiStatus = document.getElementById("ai-status");
+
+function renderAiReelOptions(reels) {
+    aiReelSelect.innerHTML = '<option value="">Select a Reel</option>' +
+        reels.map(function(reel) {
+            return '<option value="' + escapeHtml(reel.media_id) + '">' +
+                escapeHtml(shortText(reel.caption || reel.media_id, 80)) +
+            '</option>';
+        }).join("");
+}
+
+async function runAi(endpoint, button, loadingLabel) {
+    setButtonLoading(button, true, loadingLabel);
+    aiStatus.textContent = "Running local AI analysis…";
+    aiOutput.classList.remove("empty");
+    aiOutput.innerHTML = '<div class="loading-indicator"><span class="loader"></span><span>Analyzing your Instagram data…</span></div>';
+    try {
+        const response = await fetch(endpoint, { method: "POST" });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.detail || "AI analysis failed");
+        aiOutput.textContent = body.analysis || "No analysis returned.";
+        aiStatus.textContent = "Analysis complete";
+        setStatus("AI analysis complete");
+    } catch (error) {
+        aiOutput.textContent = error.message;
+        aiStatus.textContent = "Analysis failed";
+        setStatus(error.message);
+    } finally {
+        setButtonLoading(button, false);
+    }
+}
+
+async function loadAiReels() {
+    try {
+        const response = await fetch("/api/reels");
+        if (!response.ok) throw new Error("Could not load Reels");
+        const data = await response.json();
+        renderAiReelOptions(data.reels || []);
+    } catch (error) {
+        aiStatus.textContent = error.message;
+    }
+}
+
 const statusEl = document.getElementById("status");
 
 const tabButtons = document.querySelectorAll(".tab-button");
@@ -700,6 +747,8 @@ function switchTab(tabName) {
     } else if (tabName === "comments") {
         loadComments();
         loadConfig();
+    } else if (tabName === "ai") {
+        loadAiReels();
     } else if (tabName === "config") {
         loadConfig();
     }
@@ -719,6 +768,17 @@ refreshReelsBtn.addEventListener("click", refreshReels);
 refreshCommentsBtn.addEventListener("click", refreshComments);
 saveConfigBtn.addEventListener("click", saveConfig);
 replyCommentsBtn.addEventListener("click", replyPendingComments);
+aiAccountBtn.addEventListener("click", function() {
+    runAi("/api/ai/account", aiAccountBtn, "Analyzing…");
+});
+aiReelBtn.addEventListener("click", function() {
+    const mediaId = aiReelSelect.value;
+    if (!mediaId) {
+        aiStatus.textContent = "Select a Reel first";
+        return;
+    }
+    runAi("/api/ai/reels/" + encodeURIComponent(mediaId), aiReelBtn, "Analyzing…");
+});
 
 closeReelModal.addEventListener("click", function() {
     closeModal(reelModal);
