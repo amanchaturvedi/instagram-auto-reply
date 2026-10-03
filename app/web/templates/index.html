@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Instagram Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <main class="shell">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">THE LOST APERTURE</p>
+                <h1>Instagram Dashboard</h1>
+                <p class="subtle">Reels, comments and configuration</p>
+            </div>
+            <span id="status" class="status">Ready</span>
+        </header>
+
+        <nav class="tabs" aria-label="Dashboard sections">
+            <button class="tab-button active" data-tab="insights">Insights</button>
+            <button class="tab-button" data-tab="comments">Comments</button>
+            <button class="tab-button" data-tab="config">Config</button>
+        </nav>
+
+        <section id="tab-insights" class="tab-panel active">
+            <div class="section-toolbar">
+                <div>
+                    <h2>Reel Insights</h2>
+                    <p class="subtle">Click a Reel to view its historical snapshots.</p>
+                </div>
+                <button id="refresh-reels-btn" class="button primary">Refresh reels</button>
+            </div>
+
+            <section id="summary" class="summary-grid"></section>
+
+            <section class="panel">
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Reel</th>
+                                <th>Posted</th>
+                                <th>Views</th>
+                                <th>Reach</th>
+                                <th>Likes</th>
+                                <th>Comments</th>
+                                <th>Shares</th>
+                                <th>Saves</th>
+                                <th>Watch</th>
+                                <th>Skip</th>
+                                <th>Engagement</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reels-body"></tbody>
+                    </table>
+                </div>
+            </section>
+        </section>
+
+        <section id="tab-comments" class="tab-panel">
+            <div class="section-toolbar">
+                <div>
+                    <h2>Comments</h2>
+                    <p class="subtle">Refresh discovers eligible comments for all Reels enabled in Config and adds them to the existing SQLite queue.</p>
+                </div>
+                <div class="toolbar-actions">
+                    <label class="limit-control">
+                        <span>Limit</span>
+                        <input id="comment-limit-input" class="limit-input" type="number" min="1" max="500" value="100">
+                    </label>
+                    <button id="refresh-comments-btn" class="button">Refresh</button>
+                    <button id="reply-comments-btn" class="button primary">Reply All</button>
+                </div>
+            </div>
+
+            <section class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2>Comment status</h2>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table class="comments-table">
+                        <thead>
+                            <tr>
+                                <th>Reel</th>
+                                <th>Pending comments</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="comments-body"></tbody>
+                    </table>
+                </div>
+            </section>
+        </section>
+
+        <section id="tab-config" class="tab-panel">
+            <div class="section-toolbar">
+                <div>
+                    <h2>Config</h2>
+                    <p class="subtle">Select which Reels should receive comment replies and set their locations.</p>
+                </div>
+                <button id="save-config-btn" class="button primary">Save changes</button>
+            </div>
+
+            <section class="config-grid">
+                <div class="config-card">
+                    <div class="config-label">Instagram account</div>
+                    <div id="config-username" class="config-value">—</div>
+                    <div id="config-user-id" class="config-detail">—</div>
+                </div>
+
+            </section>
+
+            <section class="panel config-reels-panel">
+                <div class="panel-header">
+                    <div>
+                        <h2>Replyable Reels</h2>
+                        <p class="subtle">Enable a Reel and provide its location before saving.</p>
+                    </div>
+                    <span id="config-reels-count" class="status">0 selected</span>
+                </div>
+                <div class="table-wrap">
+                    <table class="config-reels-table">
+                        <thead>
+                            <tr>
+                                <th>Reply</th>
+                                <th>Name</th>
+                                <th>Reel</th>
+                                <th>Posted</th>
+                                <th>Location</th>
+                            </tr>
+                        </thead>
+                        <tbody id="config-reels-body"></tbody>
+                    </table>
+                </div>
+            </section>
+        </section>
+    </main>
+
+    <div id="reel-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="reel-modal-title">
+        <div class="modal-card large">
+            <div class="modal-header">
+                <div>
+                    <h2 id="reel-modal-title">Reel</h2>
+                    <p id="reel-modal-meta" class="subtle"></p>
+                </div>
+                <button id="close-reel-modal" class="icon-button" aria-label="Close">×</button>
+            </div>
+
+            <div id="reel-current-metrics" class="metric-grid"></div>
+
+            <div class="snapshot-section">
+                <div class="section-title">Snapshots</div>
+                <div class="table-wrap">
+                    <table class="snapshot-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Views</th>
+                                <th>Reach</th>
+                                <th>Likes</th>
+                                <th>Comments</th>
+                                <th>Shares</th>
+                                <th>Saves</th>
+                                <th>Watch</th>
+                                <th>Skip</th>
+                            </tr>
+                        </thead>
+                        <tbody id="snapshots-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

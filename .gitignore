@@ -3,3 +3,5 @@
 *cache*
 *.db
 .venv/
+/media.json
+/insights.json
