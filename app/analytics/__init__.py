@@ -1,3 +1,4 @@
+from .evidence import build_account_evidence
 from .analyzer import (
     build_account_analysis_context,
     build_reel_analysis_context,
@@ -16,4 +17,5 @@ __all__ = [
     "enrich_reel_metrics",
     "build_posting_time_analysis",
     "load_analysis_reels",
+    "build_account_evidence",
 ]

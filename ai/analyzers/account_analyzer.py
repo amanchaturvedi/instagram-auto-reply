@@ -8,13 +8,13 @@ from ai.prompts.account_analysis import (
 
 
 class AccountAnalyzer:
-    """AI interpretation layer for account-level deterministic analytics."""
+    """AI interpretation layer over deterministic account evidence."""
 
     def __init__(self, llm: LLM | None = None) -> None:
         self.llm = llm or get_llm()
 
-    def analyze(self, context: dict[str, Any]) -> str:
+    def analyze(self, evidence: dict[str, Any]) -> str:
         return self.llm.generate(
-            build_account_analysis_prompt(context),
+            build_account_analysis_prompt(evidence),
             system=ACCOUNT_ANALYSIS_SYSTEM_PROMPT,
         )

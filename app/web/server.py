@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.analytics import (
     build_account_analysis_context,
+    build_account_evidence,
     build_reel_analysis_for_media,
 )
 from app.comments import discover, discover_all, process
@@ -171,11 +172,13 @@ def api_analytics_reel(media_id: str):
 @app.post("/api/ai/account")
 def api_ai_account():
     try:
-        context = build_account_analysis_context()
-        analysis = AccountAnalyzer().analyze(context)
+        evidence = build_account_evidence()
+        analysis = AccountAnalyzer().analyze(evidence)
         return {
             "status": "ok",
-            "reels_analyzed": len(context.get("reels", [])),
+            "reels_analyzed": evidence["dataset"]["reels_analyzed"],
+            "reels_with_24h_snapshot": evidence["dataset"]["reels_with_24h_snapshot"],
+            "analysis_metric_source": evidence["dataset"]["analysis_metric_source"],
             "analysis": analysis,
         }
     except Exception as exc:
