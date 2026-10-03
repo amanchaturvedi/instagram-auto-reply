@@ -63,17 +63,23 @@ async def access_log_middleware(request: Request, call_next):
     except (TypeError, ValueError):
         request_body_for_log = request_body
 
+    ACCESS_LOGGER.info(
+        "ACCESS REQUEST method=%s path=%s client=%s request_body=%s",
+        request.method,
+        request.url.path,
+        request.client.host if request.client else "-",
+        format_log_body(request_body_for_log),
+    )
+
     try:
         response = await call_next(request)
     except Exception:
         duration_ms = round((time.perf_counter() - started_at) * 1000, 1)
         ACCESS_LOGGER.exception(
-            "ACCESS request method=%s path=%s status=error duration_ms=%s client=%s request_body=%s response_body=%s",
+            "ACCESS RESPONSE method=%s path=%s status=error duration_ms=%s response_body=%s",
             request.method,
             request.url.path,
             duration_ms,
-            request.client.host if request.client else "-",
-            format_log_body(request_body_for_log),
             "-",
         )
         raise
@@ -94,13 +100,11 @@ async def access_log_middleware(request: Request, call_next):
 
     duration_ms = round((time.perf_counter() - started_at) * 1000, 1)
     ACCESS_LOGGER.info(
-        "ACCESS request method=%s path=%s status=%s duration_ms=%s client=%s request_body=%s response_body=%s",
+        "ACCESS RESPONSE method=%s path=%s status=%s duration_ms=%s response_body=%s",
         request.method,
         request.url.path,
         response.status_code,
         duration_ms,
-        request.client.host if request.client else "-",
-        format_log_body(request_body_for_log),
         format_log_body(response_body_for_log),
     )
     return response
