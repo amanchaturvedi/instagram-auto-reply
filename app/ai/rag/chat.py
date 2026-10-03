@@ -1,7 +1,8 @@
 from typing import Any
 
-from ai.llm import LLM, get_llm
-from ai.prompts.chat import CHAT_SYSTEM_PROMPT, build_chat_prompt
+from app.ai.llm import LLM, get_llm
+from app.ai.prompts.chat import CHAT_SYSTEM_PROMPT, build_chat_prompt
+from app.ai.schema import parse_chat_response
 
 
 class ChatAnalyzer:
@@ -16,11 +17,12 @@ class ChatAnalyzer:
         evidence: dict[str, Any],
         retrieved_reels: list[dict[str, Any]],
         history: list[dict[str, str]] | None = None,
-    ) -> str:
+    ) -> dict[str, Any]:
         prompt = build_chat_prompt(
             question=question,
             evidence=evidence,
             retrieved_reels=retrieved_reels,
             history=history or [],
         )
-        return self.llm.generate(prompt, system=CHAT_SYSTEM_PROMPT)
+        raw = self.llm.generate(prompt, system=CHAT_SYSTEM_PROMPT)
+        return parse_chat_response(raw)

@@ -18,7 +18,16 @@ Rules:
 - If evidence is insufficient, say so instead of filling the gap with generic advice.
 - Experiments must be tied to an observed signal and specify what metric would validate the test.
 - Do not recommend unrelated formats such as Stories, polls, or Q&As unless the supplied evidence specifically supports testing them.
-Return concise, creator-focused analysis.
+Return ONLY valid JSON. Do not use Markdown fences. Use exactly this shape:
+{
+  "summary": "short account-level summary",
+  "what_changed": [{"title": "...", "detail": "..."}],
+  "patterns": [{"title": "...", "detail": "...", "sample_size": 0}],
+  "possible_causes": [{"title": "...", "detail": "..."}],
+  "experiments": [{"test": "...", "why": "...", "metric": "..."}],
+  "metrics_to_monitor": ["..."]
+}
+Keep each item concise. Use null or omit sample_size when it is not applicable.
 """
 
 
@@ -28,35 +37,30 @@ def build_account_analysis_prompt(evidence: dict) -> str:
 EVIDENCE:
 {evidence}
 
-Use exactly these sections:
+Use these JSON fields instead of Markdown sections:
 
-## Account snapshot
+"summary"
 Observed:
 - Summarize dataset coverage and the main recent-vs-history signals.
 - Do not present a sum of per-Reel views as an account lifetime total unless that exact metric is supplied.
 
-## What changed
-Observed:
+"what_changed":
 - Identify the strongest supported recent changes.
 Interpretation:
 - Explain what those changes could mean without claiming causation.
 
-## Patterns worth testing
-Observed:
+"patterns":
 - Discuss posting-time, weekday, caption-keyword, watch-time, skip-rate, or engagement patterns only when the evidence contains adequate sample size.
 - Include sample sizes when comparing groups.
 
-## Possible causes
-Hypothesis:
+"possible_causes":
 - Give only evidence-grounded hypotheses.
 - Explicitly say when the evidence is insufficient to distinguish causes.
 
-## Experiments
-For each experiment include:
+"experiments": Each item must include test, why, and metric.
 - Test
 - Why it is supported by the evidence
 - Metric to measure
 
-## Metrics to monitor
-- List the most relevant supplied metrics for the next few Reels.
+"metrics_to_monitor": List the most relevant supplied metrics for the next few Reels.
 """

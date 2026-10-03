@@ -1,3 +1,4 @@
+import json
 import time
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
@@ -18,11 +19,11 @@ from app.config import (
     save_reply_config,
 )
 from app.database import get_pending_count_by_media
-from ai.analyzers import AccountAnalyzer, ReelAnalyzer
-from ai.rag import ChatAnalyzer, retrieve_reels
+from app.ai.analyzers import AccountAnalyzer, ReelAnalyzer
+from app.ai.rag import ChatAnalyzer, retrieve_reels
 from app.insights.catalog import refresh_reel_catalog
 from app.insights.collector import collect_reel_insights
-from app.logger import ACCESS_LOGGER, logger
+from app.logger import ACCESS_LOGGER, format_log_body, logger
 
 from .service import (
     get_dashboard_summary,
@@ -55,28 +56,56 @@ app.mount(
 @app.middleware("http")
 async def access_log_middleware(request: Request, call_next):
     started_at = time.perf_counter()
+    request_body = await request.body()
+
+    try:
+        request_body_for_log = json.loads(request_body) if request_body else None
+    except (TypeError, ValueError):
+        request_body_for_log = request_body
+
+    ACCESS_LOGGER.info(
+        "ACCESS REQUEST method=%s path=%s client=%s request_body=%s",
+        request.method,
+        request.url.path,
+        request.client.host if request.client else "-",
+        format_log_body(request_body_for_log),
+    )
 
     try:
         response = await call_next(request)
     except Exception:
         duration_ms = round((time.perf_counter() - started_at) * 1000, 1)
         ACCESS_LOGGER.exception(
-            "ACCESS request method=%s path=%s status=error duration_ms=%s client=%s",
+            "ACCESS RESPONSE method=%s path=%s status=error duration_ms=%s response_body=%s",
             request.method,
             request.url.path,
             duration_ms,
-            request.client.host if request.client else "-",
+            "-",
         )
         raise
 
+    response_body = b""
+    async for chunk in response.body_iterator:
+        response_body += chunk
+
+    try:
+        response_body_for_log = json.loads(response_body) if response_body else None
+    except (TypeError, ValueError):
+        response_body_for_log = response_body
+
+    async def replay_response_body():
+        yield response_body
+
+    response.body_iterator = replay_response_body()
+
     duration_ms = round((time.perf_counter() - started_at) * 1000, 1)
     ACCESS_LOGGER.info(
-        "ACCESS request method=%s path=%s status=%s duration_ms=%s client=%s",
+        "ACCESS RESPONSE method=%s path=%s status=%s duration_ms=%s response_body=%s",
         request.method,
         request.url.path,
         response.status_code,
         duration_ms,
-        request.client.host if request.client else "-",
+        format_log_body(response_body_for_log),
     )
     return response
 

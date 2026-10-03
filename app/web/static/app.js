@@ -5,17 +5,157 @@ const aiChatClearBtn = document.getElementById("ai-chat-clear-btn");
 const aiChatStatus = document.getElementById("ai-chat-status");
 let aiChatHistory = [];
 
-function renderChatMessage(role, content) {
+function renderChatMessage(role, content, structured) {
     if (aiChatMessages.querySelector(".chat-empty")) {
         aiChatMessages.innerHTML = "";
     }
     const message = document.createElement("div");
     message.className = "chat-message " + (role === "user" ? "user" : "assistant");
-    message.innerHTML =
-        '<div class="chat-role">' + (role === "user" ? "You" : "AI") + '</div>' +
-        '<div class="chat-content">' + escapeHtml(content) + '</div>';
+
+    let body = '<div class="chat-role">' + (role === "user" ? "You" : "AI") + '</div>';
+
+    if (role === "assistant" && structured) {
+        body += renderStructuredAi(structured, true);
+    } else {
+        body += '<div class="chat-content">' + escapeHtml(content) + '</div>';
+    }
+
+    message.innerHTML = body;
     aiChatMessages.appendChild(message);
     aiChatMessages.scrollTop = aiChatMessages.scrollHeight;
+}
+
+function renderAiList(items, fields) {
+    if (!Array.isArray(items) || !items.length) return '<div class="ai-muted">No supported items.</div>';
+
+    return '<div class="ai-list">' + items.map(function(item) {
+        if (typeof item === "string") {
+            return '<div class="ai-list-item">' + escapeHtml(item) + '</div>';
+        }
+
+        const title = item.title || item.test || "Item";
+        let html = '<div class="ai-list-item"><div class="ai-item-title">' + escapeHtml(title) + '</div>';
+
+        fields.forEach(function(field) {
+            if (item[field] !== undefined && item[field] !== null && item[field] !== "") {
+                html += '<div class="ai-item-detail"><span>' +
+                    escapeHtml(field.replaceAll("_", " ")) + '</span>' +
+                    escapeHtml(String(item[field])) +
+                '</div>';
+            }
+        });
+
+        html += '</div>';
+        return html;
+    }).join("") + '</div>';
+}
+
+function renderStructuredAi(data, compact) {
+    if (!data || typeof data !== "object") {
+        return '<div class="ai-content">No structured analysis returned.</div>';
+    }
+
+    let html = '<div class="' + (compact ? 'ai-chat-structured' : 'ai-structured') + '">';
+
+    if (data.summary) {
+        html += '<div class="ai-summary">' + escapeHtml(data.summary) + '</div>';
+    }
+
+    if (Array.isArray(data.what_changed)) {
+        html += '<section class="ai-section"><h3>What changed</h3>' +
+            renderAiList(data.what_changed, ["detail", "sample_size"]) + '</section>';
+    }
+
+    if (Array.isArray(data.patterns)) {
+        html += '<section class="ai-section"><h3>Patterns worth testing</h3>' +
+            renderAiList(data.patterns, ["detail", "sample_size"]) + '</section>';
+    }
+
+    if (Array.isArray(data.observations)) {
+        html += '<section class="ai-section"><h3>Observations</h3>' +
+            renderAiList(data.observations, ["detail"]) + '</section>';
+    }
+
+    if (Array.isArray(data.working)) {
+        html += '<section class="ai-section"><h3>What’s working</h3>' +
+            renderAiList(data.working, ["detail"]) + '</section>';
+    }
+
+    if (Array.isArray(data.possible_weaknesses)) {
+        html += '<section class="ai-section"><h3>Possible weaknesses</h3>' +
+            renderAiList(data.possible_weaknesses, ["detail"]) + '</section>';
+    }
+
+    if (Array.isArray(data.possible_causes)) {
+        html += '<section class="ai-section"><h3>Possible causes</h3>' +
+            renderAiList(data.possible_causes, ["detail"]) + '</section>';
+    }
+
+    if (Array.isArray(data.hypotheses)) {
+        html += '<section class="ai-section"><h3>Hypotheses</h3>' +
+            renderAiList(data.hypotheses, ["detail"]) + '</section>';
+    }
+
+    if (Array.isArray(data.experiments)) {
+        html += '<section class="ai-section"><h3>Experiments</h3>' +
+            renderAiList(data.experiments, ["why", "metric"]) + '</section>';
+    }
+
+    if (Array.isArray(data.metrics_to_monitor)) {
+        html += '<section class="ai-section"><h3>Metrics to monitor</h3>' +
+            renderAiList(data.metrics_to_monitor, []) + '</section>';
+    }
+
+    html += '</div>';
+    return html;
+}
+
+function aiResponseToHistory(data) {
+    if (!data || typeof data !== "object") return "";
+    const parts = [];
+    if (data.summary) parts.push(data.summary);
+
+    ["observations", "what_changed", "patterns", "working", "possible_weaknesses", "possible_causes", "hypotheses"].forEach(function(key) {
+        (data[key] || []).forEach(function(item) {
+            if (typeof item === "string") parts.push(item);
+            else if (item.detail) parts.push((item.title ? item.title + ": " : "") + item.detail);
+        });
+    });
+
+    (data.experiments || []).forEach(function(item) {
+        if (typeof item === "string") parts.push(item);
+        else parts.push(
+            (item.test || "Experiment") +
+            (item.why ? " — " + item.why : "") +
+            (item.metric ? " — measure " + item.metric : "")
+        );
+    });
+
+    return parts.join("\n");
+}
+
+function renderRetrievedReels(reels) {
+    if (!Array.isArray(reels) || !reels.length) return "";
+
+    return '<section class="ai-section chat-retrieved"><h3>Reels referenced</h3>' +
+        '<div class="ai-retrieved-grid">' +
+        reels.map(function(reel) {
+            const metrics = reel.latest_metrics || reel["24h_metrics"] || {};
+            return '<div class="ai-retrieved-card">' +
+                '<div class="ai-retrieved-rank">Reel ' + escapeHtml(String(reel.rank || "")) + '</div>' +
+                '<div class="ai-item-title">' + escapeHtml(shortText(reel.caption || reel.media_id, 100)) + '</div>' +
+                '<div class="ai-retrieved-meta">' +
+                    escapeHtml(reel.media_id || "") +
+                    (reel.timestamp ? ' · ' + escapeHtml(formatPosted(reel.timestamp)) : '') +
+                '</div>' +
+                '<div class="ai-retrieved-metrics">' +
+                    '<span>Views ' + formatNumber(metrics.views) + '</span>' +
+                    '<span>Reach ' + formatNumber(metrics.reach) + '</span>' +
+                    '<span>Likes ' + formatNumber(metrics.likes) + '</span>' +
+                '</div>' +
+            '</div>';
+        }).join("") +
+        '</div></section>';
 }
 
 function clearAiChat() {
@@ -47,8 +187,13 @@ async function sendAiChat() {
         const body = await response.json();
         if (!response.ok) throw new Error(body.detail || "AI chat failed");
 
-        renderChatMessage("assistant", body.analysis || "No answer returned.");
-        aiChatHistory.push({ role: "assistant", content: body.analysis || "" });
+        renderChatMessage("assistant", aiResponseToHistory(body.analysis), body.analysis);
+        const retrievedHtml = renderRetrievedReels(body.retrieved_reels || []);
+        if (retrievedHtml) {
+            const lastMessage = aiChatMessages.lastElementChild;
+            if (lastMessage) lastMessage.insertAdjacentHTML("beforeend", retrievedHtml);
+        }
+        aiChatHistory.push({ role: "assistant", content: aiResponseToHistory(body.analysis) });
 
         const retrieved = body.retrieved_reels ? body.retrieved_reels.length : 0;
         aiChatStatus.textContent =
@@ -87,7 +232,7 @@ async function runAi(endpoint, button, loadingLabel) {
         const response = await fetch(endpoint, { method: "POST" });
         const body = await response.json();
         if (!response.ok) throw new Error(body.detail || "AI analysis failed");
-        aiOutput.textContent = body.analysis || "No analysis returned.";
+        aiOutput.innerHTML = renderStructuredAi(body.analysis, false);
         if (body.reels_analyzed !== undefined) {
             const coverage = body.reels_with_24h_snapshot !== undefined
                 ? " · " + formatNumber(body.reels_with_24h_snapshot) + " with 24h snapshots"

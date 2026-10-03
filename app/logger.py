@@ -11,6 +11,55 @@ LOG_FILE_NAME = os.getenv("LOG_FILE", "instagram.log")
 LOG_FILE = os.path.join(LOG_DIR, LOG_FILE_NAME)
 
 LOG_RETENTION_DAYS = int(os.getenv("LOG_RETENTION_DAYS", "14"))
+
+LOG_BODY_MAX_LENGTH = int(os.getenv("LOG_BODY_MAX_LENGTH", "10000"))
+SENSITIVE_LOG_KEYS = {
+    "access_token",
+    "authorization",
+    "proxy-authorization",
+    "cookie",
+    "set-cookie",
+    "password",
+    "client_secret",
+    "refresh_token",
+}
+
+
+def _redact_log_value(value):
+    if isinstance(value, dict):
+        return {
+            key: "[REDACTED]" if str(key).lower() in SENSITIVE_LOG_KEYS else _redact_log_value(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_log_value(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_redact_log_value(item) for item in value)
+    return value
+
+
+def format_log_body(value):
+    """Return a bounded, recursively redacted representation for request/response logs."""
+    if value is None:
+        return "-"
+
+    value = _redact_log_value(value)
+
+    if isinstance(value, bytes):
+        value = value.decode("utf-8", errors="replace")
+
+    if not isinstance(value, str):
+        import json
+        try:
+            value = json.dumps(value, ensure_ascii=False, default=str, separators=(",", ":"))
+        except (TypeError, ValueError):
+            value = repr(value)
+
+    if len(value) > LOG_BODY_MAX_LENGTH:
+        return value[:LOG_BODY_MAX_LENGTH] + "…[truncated]"
+
+    return value
+
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s:%(funcName)s:%(lineno)d - %(message)s"
 CONSOLE_LOG_FORMAT = "%(asctime)s %(levelname_color)s %(message)s"
 

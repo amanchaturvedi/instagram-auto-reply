@@ -3,7 +3,7 @@ import requests
 from urllib.parse import urlsplit
 
 from .config import ACCESS_TOKEN, BASE_URL, IG_USER_ID
-from .logger import logger, OUT_ACCESS_LOGGER
+from .logger import OUT_ACCESS_LOGGER, format_log_body, logger
 
 REQUEST_TIMEOUT = 30
 
@@ -28,6 +28,14 @@ def _request(method, url, *, params=None, data=None, json=None, headers=None):
     started_at = time.perf_counter()
     method_upper = method.upper()
     path = urlsplit(url).path
+    request_body = json if json is not None else data
+
+    OUT_ACCESS_LOGGER.info(
+        "OUTBOUND REQUEST method=%s path=%s request_body=%s",
+        method_upper,
+        path,
+        format_log_body(request_body),
+    )
 
     try:
         response = requests.request(
@@ -42,20 +50,22 @@ def _request(method, url, *, params=None, data=None, json=None, headers=None):
     except requests.RequestException:
         duration_ms = round((time.perf_counter() - started_at) * 1000, 1)
         OUT_ACCESS_LOGGER.exception(
-            "OUTBOUND request method=%s path=%s status=error duration_ms=%s",
+            "OUTBOUND RESPONSE method=%s path=%s status=error duration_ms=%s response_body=%s",
             method_upper,
             path,
             duration_ms,
+            "-",
         )
         raise
 
     duration_ms = round((time.perf_counter() - started_at) * 1000, 1)
     OUT_ACCESS_LOGGER.info(
-        "OUTBOUND request method=%s path=%s status=%s duration_ms=%s",
+        "OUTBOUND RESPONSE method=%s path=%s status=%s duration_ms=%s response_body=%s",
         method_upper,
         path,
         response.status_code,
         duration_ms,
+        format_log_body(_response_body(response)),
     )
 
     return response
