@@ -134,6 +134,30 @@ function aiResponseToHistory(data) {
     return parts.join("\n");
 }
 
+function renderRetrievedReels(reels) {
+    if (!Array.isArray(reels) || !reels.length) return "";
+
+    return '<section class="ai-section chat-retrieved"><h3>Reels referenced</h3>' +
+        '<div class="ai-retrieved-grid">' +
+        reels.map(function(reel) {
+            const metrics = reel.latest_metrics || reel["24h_metrics"] || {};
+            return '<div class="ai-retrieved-card">' +
+                '<div class="ai-retrieved-rank">Reel ' + escapeHtml(String(reel.rank || "")) + '</div>' +
+                '<div class="ai-item-title">' + escapeHtml(shortText(reel.caption || reel.media_id, 100)) + '</div>' +
+                '<div class="ai-retrieved-meta">' +
+                    escapeHtml(reel.media_id || "") +
+                    (reel.timestamp ? ' · ' + escapeHtml(formatPosted(reel.timestamp)) : '') +
+                '</div>' +
+                '<div class="ai-retrieved-metrics">' +
+                    '<span>Views ' + formatNumber(metrics.views) + '</span>' +
+                    '<span>Reach ' + formatNumber(metrics.reach) + '</span>' +
+                    '<span>Likes ' + formatNumber(metrics.likes) + '</span>' +
+                '</div>' +
+            '</div>';
+        }).join("") +
+        '</div></section>';
+}
+
 function clearAiChat() {
     aiChatHistory = [];
     aiChatMessages.innerHTML =
@@ -164,7 +188,7 @@ async function sendAiChat() {
         if (!response.ok) throw new Error(body.detail || "AI chat failed");
 
         renderChatMessage("assistant", aiResponseToHistory(body.analysis), body.analysis);
-        aiChatHistory.push({ role: "assistant", content: aiResponseToHistory(body.analysis) });
+        const retrievedHtml = renderRetrievedReels(body.retrieved_reels || []);\n        if (retrievedHtml) {\n            const lastMessage = aiChatMessages.lastElementChild;\n            if (lastMessage) lastMessage.insertAdjacentHTML("beforeend", retrievedHtml);\n        }\n        aiChatHistory.push({ role: "assistant", content: aiResponseToHistory(body.analysis) });
 
         const retrieved = body.retrieved_reels ? body.retrieved_reels.length : 0;
         aiChatStatus.textContent =
