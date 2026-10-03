@@ -1,7 +1,7 @@
 from typing import Any
 
-from ai.llm import LLM, get_llm
-from ai.prompts import REEL_ANALYSIS_SYSTEM_PROMPT, build_reel_analysis_prompt
+from app.ai.llm import LLM, get_llm
+from app.ai.prompts import REEL_ANALYSIS_SYSTEM_PROMPT, build_reel_analysis_prompt
 
 
 class ReelAnalyzer:
