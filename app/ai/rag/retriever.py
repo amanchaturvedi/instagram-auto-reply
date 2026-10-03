@@ -4,7 +4,6 @@ from app.analytics.metrics import enrich_reel_metrics
 from app.analytics.posting_time import posting_features, select_snapshot_at_age
 
 TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9']{2,}")
-RECENT_QUERY_RE = re.compile(r"\b(?:last|latest|newest|most recent)\s+(?:(\d+)\s+|(?:one|two|three|four|five|six|seven|eight|nine|ten)\s+)?(?:reels?|posts?)\b|\b(?:latest|newest|recent)\b")
 NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
 
 STOPWORDS = {
@@ -27,7 +26,7 @@ def _recent_limit(query, default_limit):
     query_lower = str(query or "").lower()
 
     match = re.search(
-        r"\\b(?:last|latest|newest|most recent)\\s+(?:(\\d+)\\s+|(one|two|three|four|five|six|seven|eight|nine|ten)\\s+)?(?:reels?|posts?)\\b",
+        r"\b(?:last|latest|newest|most recent)\\s+(?:(\\d+)\\s+|(one|two|three|four|five|six|seven|eight|nine|ten)\\s+)?(?:reels?|posts?)\b",
         query_lower,
     )
     if match:
@@ -37,7 +36,7 @@ def _recent_limit(query, default_limit):
             return NUMBER_WORDS[match.group(2)]
         return default_limit
 
-    if re.search(r"\\b(?:latest|newest|recent)\\b", query_lower):
+    if re.search(r"\b(?:latest|newest|recent)\b", query_lower):
         return default_limit
 
     return None
