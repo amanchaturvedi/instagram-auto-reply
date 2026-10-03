@@ -18,6 +18,7 @@ from app.config import (
 )
 from app.database import get_pending_count_by_media
 from ai.analyzers import AccountAnalyzer, ReelAnalyzer
+from ai.rag import ChatAnalyzer, retrieve_reels
 from app.insights.catalog import refresh_reel_catalog
 from app.insights.collector import collect_reel_insights
 from app.logger import logger
@@ -184,6 +185,47 @@ def api_ai_account():
     except Exception as exc:
         logger.exception("AI account analysis failed")
         raise HTTPException(status_code=502, detail=f"AI analysis failed: {exc}") from exc
+
+
+@app.post("/api/ai/chat")
+def api_ai_chat(payload: dict):
+    question = str(payload.get("message") or "").strip()
+    history = payload.get("history") or []
+
+    if not question:
+        raise HTTPException(status_code=400, detail="message is required")
+
+    if not isinstance(history, list):
+        raise HTTPException(status_code=400, detail="history must be an array")
+
+    safe_history = [
+        {
+            "role": str(item.get("role", "")),
+            "content": str(item.get("content", "")),
+        }
+        for item in history[-8:]
+        if isinstance(item, dict)
+    ]
+
+    try:
+        evidence = build_account_evidence()
+        retrieved = retrieve_reels(question)
+        analysis = ChatAnalyzer().answer(
+            question=question,
+            evidence=evidence,
+            retrieved_reels=retrieved,
+            history=safe_history,
+        )
+        return {
+            "status": "ok",
+            "analysis": analysis,
+            "retrieved_reels": retrieved,
+            "reels_analyzed": evidence["dataset"]["reels_analyzed"],
+            "analysis_metric_source": evidence["dataset"]["analysis_metric_source"],
+        }
+    except Exception as exc:
+        logger.exception("AI chat failed")
+        raise HTTPException(status_code=502, detail=f"AI chat failed: {exc}") from exc
 
 
 @app.post("/api/ai/reels/{media_id}")

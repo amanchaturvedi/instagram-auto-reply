@@ -1146,3 +1146,32 @@ Expected output includes `Provider: OllamaLLM`, the configured model, and `Ollam
 ### Design rule
 
 Keep deterministic Instagram metrics outside the LLM. Python should calculate metrics such as reach, views, watch time, shares, saves, comments and engagement rates. The LLM should interpret those metrics, identify patterns/hypotheses, and suggest experiments. This keeps numerical analysis reproducible and makes the AI layer replaceable.
+
+
+---
+
+# 24. AI EVIDENCE + RAG CHAT
+
+The AI account-analysis flow is evidence-first. Python builds deterministic account evidence before Ollama is called. The evidence includes recent-vs-previous Reel cohorts, metric distributions, posting-time evidence, caption-keyword evidence, and top/bottom Reel evidence.
+
+## Chat architecture
+
+User question -> deterministic account evidence + local Reel retrieval -> Ollama ChatAnalyzer -> grounded answer
+
+The first RAG implementation deliberately uses lightweight local lexical retrieval instead of adding a vector database. With the current Reel dataset size, this keeps the application local and dependency-light.
+
+ai/rag/retriever.py retrieves historical Reels using caption token overlap and question-intent signals for views, saves, shares and engagement.
+
+ai/rag/chat.py combines retrieved Reels with deterministic account evidence and recent conversation history.
+
+## Chat endpoint
+
+POST /api/ai/chat
+
+Request contains a message and optional recent history. The response includes the analysis, retrieved Reels, Reel count analyzed, and metric source.
+
+## Chat grounding rules
+
+The chat model must use deterministic evidence for numerical claims, avoid calculating new statistics from raw Reel records, identify retrieved Reels by media ID, distinguish examples from account-wide patterns, distinguish observations from interpretations and hypotheses, and state when evidence is insufficient.
+
+The dashboard exposes chat as a separate AI Chat tab. Conversation history currently lives in the browser session and is sent with each request; chat history is not persisted server-side.
