@@ -24,8 +24,18 @@ async function runAi(endpoint, button, loadingLabel) {
         if (!response.ok) throw new Error(body.detail || "AI analysis failed");
         aiOutput.textContent = body.analysis || "No analysis returned.";
         if (body.reels_analyzed !== undefined) {
+            const coverage = body.reels_with_24h_snapshot !== undefined
+                ? " · " + formatNumber(body.reels_with_24h_snapshot) + " with 24h snapshots"
+                : "";
+            const source = body.analysis_metric_source
+                ? " · " + body.analysis_metric_source + " metrics"
+                : "";
             aiStatus.textContent =
-                "Analysis complete · " + formatNumber(body.reels_analyzed) + " Reels analyzed";
+                "Analysis complete · " +
+                formatNumber(body.reels_analyzed) +
+                " Reels analyzed" +
+                coverage +
+                source;
         } else {
             aiStatus.textContent = "Analysis complete";
         }
