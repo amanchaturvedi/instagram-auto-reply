@@ -21,6 +21,7 @@
             <button class="tab-button active" data-tab="insights">Insights</button>
             <button class="tab-button" data-tab="comments">Comments</button>
             <button class="tab-button" data-tab="ai">AI Analysis</button>
+            <button class="tab-button" data-tab="chat">AI Chat</button>
             <button class="tab-button" data-tab="config">Config</button>
         </nav>
 
@@ -129,6 +130,26 @@
                     </div>
                     <div id="ai-output" class="ai-output empty">Choose an analysis above.</div>
                 </div>
+            </section>
+        </section>
+
+        <section id="tab-chat" class="tab-panel">
+            <div class="section-toolbar">
+                <div>
+                    <h2>AI Chat</h2>
+                    <p class="subtle">Ask questions about your Reel history, performance patterns and experiments.</p>
+                </div>
+                <button id="ai-chat-clear-btn" class="button">Clear chat</button>
+            </div>
+            <section class="panel chat-panel">
+                <div id="ai-chat-messages" class="chat-messages">
+                    <div class="chat-empty">Ask something like “Why are my recent Reels underperforming?” or “Which of my Reels had the strongest engagement?”</div>
+                </div>
+                <div class="chat-composer">
+                    <textarea id="ai-chat-input" class="chat-input" rows="2" placeholder="Ask about your Instagram data…"></textarea>
+                    <button id="ai-chat-send-btn" class="button primary">Send</button>
+                </div>
+                <div id="ai-chat-status" class="subtle chat-status">Ready</div>
             </section>
         </section>
 
